@@ -9,7 +9,6 @@ import {
   Sparkles,
   ChevronRight,
   Target,
-  Calendar,
   Search,
   ArrowUpRight,
   Trophy,
@@ -22,7 +21,6 @@ import { useEnrollInCourse, useStudentCatalog, useStudentMyCourses } from '../ho
 import { useStudentModules } from '../hooks/useStudentModules'
 import {
   useStudentSupplementCertificates,
-  useStudentSupplementDeadlines,
   useStudentSupplementNextLesson,
 } from '../hooks/useStudentSupplements'
 import { StatCards } from './StatCards'
@@ -35,7 +33,7 @@ interface StudentDashboardProps {
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({ data }) => {
   const navigate = useNavigate()
   const { data: catalog = [] } = useStudentCatalog()
-  const { data: myCourses = [] } = useStudentMyCourses()
+  useStudentMyCourses()
   const enrollMutation = useEnrollInCourse()
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
@@ -276,7 +274,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ data }) => {
             </div>
 
             <div className="space-y-6">
-              {catalog.slice(0, 3).map((course, idx) => (
+              {catalog.slice(0, 3).map((course) => (
                 <div key={course.id} className="flex gap-4 group cursor-pointer">
                   <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-100 dark:bg-white/5 flex-shrink-0">
                     <img src={course.thumbnail || ''} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" alt={course.title} />

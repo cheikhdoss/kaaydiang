@@ -2,7 +2,6 @@ import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { dashboardPaths } from '../utils/navigation';
 
 interface StatCardData {
   icon: LucideIcon;

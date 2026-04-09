@@ -1,16 +1,15 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LogOut,
-  Sparkles,
   LayoutDashboard,
   BookOpen,
   Library,
   Settings,
   User,
+  Users,
   Bell,
   Menu,
   X,
-  ChevronRight,
   Trophy,
   Zap,
   Activity,
@@ -21,9 +20,13 @@ import {
   Moon,
   Calendar,
   MessageSquare,
-  PlayCircle
+  GraduationCap,
+  LifeBuoy,
+  UserCircle,
+  BarChart3,
+  FileEdit
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import type { DashboardRole } from '../services/dashboard.api'
@@ -39,16 +42,34 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Vue d\'ensemble', icon: LayoutDashboard, path: dashboardPaths.home, roles: ['student', 'instructor', 'admin'] },
+  // Student
   { label: 'Mes Cours', icon: BookOpen, path: dashboardPaths.studentCourses, roles: ['student'] },
   { label: 'Catalogue', icon: Library, path: dashboardPaths.studentCatalog, roles: ['student'] },
   { label: 'Progression', icon: Activity, path: dashboardPaths.studentProgress, roles: ['student'] },
+  { label: 'Notes', icon: GraduationCap, path: dashboardPaths.studentGrades, roles: ['student'] },
   { label: 'Quiz', icon: HelpCircle, path: dashboardPaths.studentQuiz, roles: ['student'] },
   { label: 'Devoirs', icon: ClipboardList, path: dashboardPaths.studentAssignments, roles: ['student'] },
   { label: 'Certificats', icon: Award, path: dashboardPaths.studentCertificates, roles: ['student'] },
   { label: 'Calendrier', icon: Calendar, path: dashboardPaths.studentCalendar, roles: ['student'] },
   { label: 'Messages', icon: MessageSquare, path: dashboardPaths.studentMessages, roles: ['student'] },
-  { label: 'Gestion Cours', icon: BookOpen, path: dashboardPaths.instructor, roles: ['instructor'] },
+  { label: 'Notifications', icon: Bell, path: dashboardPaths.studentNotifications, roles: ['student'] },
+  { label: 'Profil', icon: UserCircle, path: dashboardPaths.studentProfile, roles: ['student'] },
+  { label: 'Aide', icon: LifeBuoy, path: dashboardPaths.studentHelp, roles: ['student'] },
+  // Instructor
+  { label: 'Mes Cours', icon: BookOpen, path: dashboardPaths.instructorCourses, roles: ['instructor'] },
+  { label: 'Étudiants', icon: Users, path: dashboardPaths.instructorStudents, roles: ['instructor'] },
+  { label: 'Calendrier', icon: Calendar, path: dashboardPaths.instructorCalendar, roles: ['instructor'] },
+  { label: 'Quiz', icon: FileEdit, path: dashboardPaths.instructorQuiz, roles: ['instructor'] },
+  { label: 'Devoirs', icon: ClipboardList, path: dashboardPaths.instructorAssignments, roles: ['instructor'] },
+  { label: 'Statistiques', icon: BarChart3, path: dashboardPaths.instructorStats, roles: ['instructor'] },
+  { label: 'Messages', icon: MessageSquare, path: dashboardPaths.instructorMessages, roles: ['instructor'] },
+  { label: 'Notifications', icon: Bell, path: dashboardPaths.instructorNotifications, roles: ['instructor'] },
+  { label: 'Profil', icon: UserCircle, path: dashboardPaths.instructorProfile, roles: ['instructor'] },
+  { label: 'Aide', icon: LifeBuoy, path: dashboardPaths.instructorHelp, roles: ['instructor'] },
+  // Admin
   { label: 'Utilisateurs', icon: User, path: dashboardPaths.adminUsers, roles: ['admin'] },
+  { label: 'Modération', icon: FileEdit, path: dashboardPaths.adminModeration, roles: ['admin'] },
+  { label: 'Santé', icon: Activity, path: dashboardPaths.adminHealth, roles: ['admin'] },
   { label: 'Paramètres', icon: Settings, path: '#', roles: ['student', 'instructor', 'admin'] },
 ]
 
@@ -315,4 +336,3 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
     </div>
   )
 }
-

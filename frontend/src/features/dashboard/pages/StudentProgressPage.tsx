@@ -1,4 +1,4 @@
-import { Activity, TrendingUp, Clock, BookOpen, Target, Calendar, CheckCircle2, Sparkles } from 'lucide-react'
+import { Activity, TrendingUp, Clock, Target, Calendar, CheckCircle2, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,7 @@ const StudentProgressPage: React.FC = () => {
 
   if (isLoading) return <LoadingState fullscreen />
   if (isError) return <ErrorState message={error instanceof Error ? error.message : 'Erreur'} onRetry={() => void refetch()} />
-  if (!data || data.role !== 'student') return <ErrorState message="Données invalides" />
+  if (!data || data.role !== 'student') return <ErrorState message="Données invalides" onRetry={() => void refetch()} />
 
   const stats = [
     { label: 'Leçons Complétées', value: data.progress.completed_lessons, total: data.progress.total_lessons, icon: CheckCircle2, color: 'text-emerald-500 dark:text-emerald-400' },

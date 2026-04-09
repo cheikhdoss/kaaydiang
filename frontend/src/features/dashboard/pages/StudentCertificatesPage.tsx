@@ -1,4 +1,4 @@
-import { Award, Trophy, Download, Share2, ShieldCheck, ArrowUpRight, Search } from 'lucide-react'
+import { Award, Trophy, Download, Share2, ShieldCheck, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/hooks/useAuth'
@@ -6,7 +6,7 @@ import { resolveRoleDashboardPath } from '../utils/navigation'
 import { DashboardShell } from '../components/DashboardShell'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
-import { useStudentSupplementCertificates } from '../hooks/useStudentSupplements'
+import { useStudentSupplementCertificates, useDownloadCertificate } from '../hooks/useStudentSupplements'
 import { Button } from '@/components/ui/button'
 import type { DashboardRole } from '../services/dashboard.api'
 
@@ -14,6 +14,7 @@ const StudentCertificatesPage: React.FC = () => {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { data: certificates = [], isLoading, isError, error, refetch } = useStudentSupplementCertificates()
+  const downloadCertificate = useDownloadCertificate()
 
   if (!user) return <LoadingState fullscreen />
 
@@ -28,6 +29,15 @@ const StudentCertificatesPage: React.FC = () => {
 
   if (isLoading) return <LoadingState fullscreen />
   if (isError) return <ErrorState message={error instanceof Error ? error.message : 'Erreur'} onRetry={() => void refetch()} />
+
+  const handleDownload = async (certId: number) => {
+    try {
+      await downloadCertificate.mutateAsync(certId)
+    } catch {
+      // fallback: open verification page
+      window.open(`/api/student/certificates/${certId}/view`, '_blank')
+    }
+  }
 
   return (
     <DashboardShell
@@ -103,9 +113,14 @@ const StudentCertificatesPage: React.FC = () => {
                   <p className="text-[10px] text-slate-400 dark:text-white/40 uppercase tracking-widest font-black mb-6">Délivré le {cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('fr-FR') : 'N/A'}</p>
 
                   <div className="flex gap-3">
-                    <Button variant="outline" className="flex-1 h-10 rounded-xl border-slate-200 dark:border-white/5 bg-white dark:bg-white/5 text-slate-900 dark:text-white text-[10px] font-bold uppercase tracking-widest hover:bg-[#3054ff] hover:border-[#3054ff] hover:text-white transition-all">
+                    <Button
+                      variant="outline"
+                      className="flex-1 h-10 rounded-xl border-slate-200 dark:border-white/5 bg-white dark:bg-white/5 text-slate-900 dark:text-white text-[10px] font-bold uppercase tracking-widest hover:bg-[#3054ff] hover:border-[#3054ff] hover:text-white transition-all"
+                      onClick={() => handleDownload(cert.id)}
+                      disabled={downloadCertificate.isPending}
+                    >
                       <Download size={14} className="mr-2" />
-                      PDF
+                      {downloadCertificate.isPending ? '...' : 'PDF'}
                     </Button>
                     <Button variant="outline" className="w-10 h-10 rounded-xl border-slate-200 dark:border-white/5 bg-white dark:bg-white/5 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/10 transition-all p-0">
                       <Share2 size={14} />

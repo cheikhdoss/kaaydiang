@@ -65,19 +65,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data }) => {
                   onClick={() => {
                     if (module.key === 'user-governance') {
                       navigate(dashboardPaths.adminUsers)
-                      return
+                    } else if (module.key === 'content-moderation') {
+                      navigate(dashboardPaths.adminModeration)
+                    } else if (module.key === 'platform-health') {
+                      navigate(dashboardPaths.adminHealth)
+                    } else {
+                      setFeedback({ type: 'success', message: `${module.cta} disponible.` })
                     }
-                    if (module.key === 'content-moderation') {
-                      setFeedback({ type: 'success', message: 'Moderation active sur les cours recents.' })
-                      navigate(dashboardPaths.admin)
-                      return
-                    }
-                    if (module.key === 'platform-health') {
-                      setFeedback({ type: 'success', message: 'Indicateurs plateforme synchronises.' })
-                      navigate(dashboardPaths.admin)
-                      return
-                    }
-                    setFeedback({ type: 'success', message: `${module.cta} disponible.` })
                   }}
                 >
                   {module.cta}

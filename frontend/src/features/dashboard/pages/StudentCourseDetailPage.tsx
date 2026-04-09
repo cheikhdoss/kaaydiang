@@ -1,4 +1,4 @@
-import { BookOpen, PlayCircle, Lock, CheckCircle2, Clock, ArrowLeft, Users, Award, FileText } from 'lucide-react'
+import { BookOpen, PlayCircle, Lock, CheckCircle2, Clock, Users, Award, FileText } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
@@ -7,7 +7,6 @@ import { resolveRoleDashboardPath, dashboardPaths } from '../utils/navigation'
 import { DashboardShell } from '../components/DashboardShell'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
-import { Button } from '@/components/ui/button'
 import { useCourseDetail } from '../hooks/useStudentSupplements'
 import type { DashboardRole } from '../services/dashboard.api'
 import type { Lesson } from '../hooks/useStudentSupplements'
@@ -16,7 +15,7 @@ const StudentCourseDetailPage: React.FC = () => {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { courseId } = useParams<{ courseId: string }>()
-  const { data: course, isLoading } = useCourseDetail(Number(courseId))
+  const { data: course, isLoading, isError, error } = useCourseDetail(Number(courseId))
   const [expandedChapter, setExpandedChapter] = useState<number | null>(1)
 
   if (!user) return <LoadingState fullscreen />
@@ -34,7 +33,7 @@ const StudentCourseDetailPage: React.FC = () => {
   const completedLessons = allLessons.filter(l => l.completed).length
   const progressPercent = allLessons.length > 0 ? Math.round((completedLessons / allLessons.length) * 100) : 0
 
-  const handleLessonClick = (lesson: Lesson, chapterId: number) => {
+  const handleLessonClick = (lesson: Lesson) => {
     if (lesson.locked) return
     navigate(dashboardPaths.studentLesson(Number(courseId), lesson.id))
   }
@@ -50,7 +49,7 @@ const StudentCourseDetailPage: React.FC = () => {
       onLogout={handleLogout}
       onNavigateRole={handleNavigateRole}
     >
-      {isLoading ? <LoadingState /> : !course ? <ErrorState message="Cours non trouvé" /> : (
+      {isLoading ? <LoadingState /> : isError ? <ErrorState message={error instanceof Error ? error.message : 'Erreur'} onRetry={() => window.location.reload()} /> : !course ? <ErrorState message="Cours non trouve" onRetry={() => window.location.reload()} /> : (
         <div className="space-y-8">
           {/* Course Hero */}
           <motion.div
@@ -58,7 +57,7 @@ const StudentCourseDetailPage: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             className="relative rounded-[2rem] overflow-hidden aspect-[21/9] min-h-[250px]"
           >
-            <img src={course.thumbnail} className="absolute inset-0 w-full h-full object-cover" alt={course.title} />
+            <img src={course.thumbnail ? `${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${course.thumbnail}` : ''} className="absolute inset-0 w-full h-full object-cover" alt={course.title} />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
             <div className="absolute inset-0 p-8 md:p-12 flex flex-col justify-end">
               <div className="flex items-center gap-3 mb-3">
@@ -66,7 +65,7 @@ const StudentCourseDetailPage: React.FC = () => {
                 <span className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-[10px] font-black uppercase tracking-widest text-white">{course.enrolledStudents} inscrits</span>
               </div>
               <h2 className="text-3xl md:text-4xl font-serif italic text-white mb-3">{course.title}</h2>
-              <p className="text-white/60 text-sm max-w-xl line-clamp-2">{course.description}</p>
+              <p className="text-white/60 text-sm max-w-xl line-clamp-2">{course.description || 'Aucune description disponible.'}</p>
               <div className="flex items-center gap-6 mt-4">
                 <div className="flex items-center gap-2 text-white/60 text-sm">
                   <Users size={16} className="text-[#3054ff]" />
@@ -153,10 +152,10 @@ const StudentCourseDetailPage: React.FC = () => {
                           className="overflow-hidden"
                         >
                           <div className="px-6 pb-4 space-y-2">
-                            {chapter.lessons.map((lesson, lIdx) => (
+                            {chapter.lessons.map((lesson) => (
                               <button
                                 key={lesson.id}
-                                onClick={() => handleLessonClick(lesson, chapter.id)}
+                                onClick={() => handleLessonClick(lesson)}
                                 disabled={lesson.locked}
                                 className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all text-left group ${
                                   lesson.locked

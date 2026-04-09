@@ -9,6 +9,7 @@ class Lesson extends Model
     protected $fillable = [
         'title',
         'content',
+        'blocks',
         'video_url',
         'chapter_id',
         'order',
@@ -18,6 +19,7 @@ class Lesson extends Model
 
     protected $casts = [
         'is_free' => 'boolean',
+        'blocks' => 'array',
     ];
 
     public function chapter()
