@@ -1,20 +1,37 @@
-import { MessageSquare, Search, Send, Paperclip, ArrowLeft, User } from 'lucide-react'
+import { MessageSquare, Search, Send, Paperclip, ArrowLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useState } from 'react'
+import { motion } from 'framer-motion'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { resolveRoleDashboardPath } from '../utils/navigation'
 import { DashboardShell } from '../components/DashboardShell'
 import { LoadingState } from '../components/LoadingState'
+import { ErrorState } from '../components/ErrorState'
 import { Button } from '@/components/ui/button'
-import { useStudentMessages } from '../hooks/useStudentSupplements'
+import { useMarkStudentMessageThreadRead, useSendStudentMessage, useStudentMessages } from '../hooks/useStudentSupplements'
 import type { DashboardRole } from '../services/dashboard.api'
 
 const StudentMessagesPage: React.FC = () => {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const { messages, conversation, isLoading, selectedMessage, selectMessage } = useStudentMessages()
+  const {
+    messages,
+    conversation,
+    isMessagesLoading,
+    isThreadLoading,
+    isError,
+    error,
+    selectedMessage,
+    selectMessage,
+    clearSelectedMessage,
+    participant,
+    course,
+    refetchThread,
+  } = useStudentMessages()
+  const sendMessageMutation = useSendStudentMessage()
+  const markThreadReadMutation = useMarkStudentMessageThreadRead()
   const [newMessage, setNewMessage] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
 
   if (!user) return <LoadingState fullscreen />
 
@@ -28,6 +45,52 @@ const StudentMessagesPage: React.FC = () => {
   }
 
   const unreadCount = messages.filter(m => m.unread).length
+
+  const threadSignature = useMemo(() => {
+    const latest = conversation.at(-1)
+    return `${selectedMessage?.id ?? 'none'}:${latest?.id ?? 'empty'}`
+  }, [conversation, selectedMessage?.id])
+
+  const [lastMarkedSignature, setLastMarkedSignature] = useState<string>('')
+
+  useEffect(() => {
+    if (!selectedMessage?.id) return
+    if (!selectedMessage.unread) return
+    if (markThreadReadMutation.isPending) return
+    if (threadSignature === lastMarkedSignature) return
+
+    setLastMarkedSignature(threadSignature)
+    void markThreadReadMutation.mutateAsync(selectedMessage.id)
+  }, [
+    selectedMessage?.id,
+    selectedMessage?.unread,
+    markThreadReadMutation.isPending,
+    markThreadReadMutation.mutateAsync,
+    threadSignature,
+    lastMarkedSignature,
+  ])
+  const filteredMessages = messages.filter((msg) => {
+    const term = searchTerm.trim().toLowerCase()
+    if (!term) return true
+
+    return [msg.sender.name, msg.subject, msg.preview, msg.course]
+      .join(' ')
+      .toLowerCase()
+      .includes(term)
+  })
+
+  const handleSend = async () => {
+    if (!selectedMessage || !newMessage.trim()) {
+      return
+    }
+
+    await sendMessageMutation.mutateAsync({
+      conversationId: selectedMessage.id,
+      message: newMessage.trim(),
+    })
+
+    setNewMessage('')
+  }
 
   return (
     <DashboardShell
@@ -49,6 +112,8 @@ const StudentMessagesPage: React.FC = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/20" size={16} />
                 <input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Rechercher..."
                   className="w-full h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 pl-9 pr-4 text-sm text-slate-900 dark:text-white outline-none focus:border-[#3054ff] transition-all placeholder:text-slate-400 dark:placeholder:text-white/30"
                 />
@@ -57,7 +122,7 @@ const StudentMessagesPage: React.FC = () => {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto">
-              {isLoading ? <LoadingState /> : messages.map((msg, idx) => (
+              {isMessagesLoading ? <LoadingState /> : filteredMessages.map((msg, idx) => (
                 <motion.button
                   key={msg.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -99,7 +164,7 @@ const StudentMessagesPage: React.FC = () => {
                 {/* Conversation Header */}
                 <div className="p-4 border-b border-slate-200 dark:border-white/5 flex items-center gap-4">
                   <button
-                    onClick={() => navigate(-1)}
+                    onClick={() => clearSelectedMessage()}
                     className="md:hidden p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   >
                     <ArrowLeft size={18} />
@@ -108,14 +173,29 @@ const StudentMessagesPage: React.FC = () => {
                     <span className="text-xs font-bold text-[#3054ff]">{selectedMessage.sender.avatar}</span>
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-slate-900 dark:text-white">{selectedMessage.sender.name}</div>
-                    <div className="text-[10px] text-slate-400 dark:text-white/30">{selectedMessage.sender.role} — {selectedMessage.course}</div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white">{participant?.name ?? selectedMessage.sender.name}</div>
+                    <div className="text-[10px] text-slate-400 dark:text-white/30">{participant?.role ?? selectedMessage.sender.role} — {course ?? selectedMessage.course}</div>
                   </div>
                 </div>
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                  {conversation.map((msg) => (
+                  {isThreadLoading && <LoadingState />}
+
+                  {isError && (
+                    <ErrorState
+                      message={error instanceof Error ? error.message : 'Erreur'}
+                      onRetry={() => void refetchThread()}
+                    />
+                  )}
+
+                  {!isThreadLoading && !isError && conversation.length === 0 && (
+                    <div className="text-center text-sm text-slate-500 dark:text-white/40">
+                      Aucun message dans cette conversation.
+                    </div>
+                  )}
+
+                  {!isThreadLoading && !isError && conversation.map((msg) => (
                     <motion.div
                       key={msg.id}
                       initial={{ opacity: 0, y: 10 }}
@@ -143,20 +223,21 @@ const StudentMessagesPage: React.FC = () => {
                     <input
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Écrire un message..."
-                      className="flex-1 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 px-4 text-sm text-slate-900 dark:text-white outline-none focus:border-[#3054ff] transition-all placeholder:text-slate-400 dark:placeholder:text-white/30"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && newMessage.trim()) {
-                          setNewMessage('')
-                        }
-                      }}
-                    />
-                    <Button
-                      className="h-10 px-4 bg-[#3054ff] hover:bg-[#1943f2] text-white rounded-xl"
-                      disabled={!newMessage.trim()}
-                    >
-                      <Send size={16} />
-                    </Button>
+                        placeholder="Écrire un message..."
+                        className="flex-1 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 px-4 text-sm text-slate-900 dark:text-white outline-none focus:border-[#3054ff] transition-all placeholder:text-slate-400 dark:placeholder:text-white/30"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newMessage.trim()) {
+                            void handleSend()
+                          }
+                        }}
+                      />
+                      <Button
+                        className="h-10 px-4 bg-[#3054ff] hover:bg-[#1943f2] text-white rounded-xl"
+                        disabled={!newMessage.trim() || sendMessageMutation.isPending}
+                        onClick={() => void handleSend()}
+                      >
+                        <Send size={16} />
+                      </Button>
                   </div>
                 </div>
               </>

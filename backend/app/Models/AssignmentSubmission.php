@@ -10,8 +10,11 @@ class AssignmentSubmission extends Model
         'assignment_id',
         'user_id',
         'file_url',
+        'student_attachments',
+        'correction_attachments',
         'status',
         'score',
+        'instructor_feedback',
         'submitted_at',
     ];
 
@@ -19,6 +22,8 @@ class AssignmentSubmission extends Model
     {
         return [
             'submitted_at' => 'datetime',
+            'student_attachments' => 'array',
+            'correction_attachments' => 'array',
         ];
     }
 

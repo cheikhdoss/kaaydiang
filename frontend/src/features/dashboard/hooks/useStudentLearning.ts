@@ -42,6 +42,8 @@ export const useMarkLessonCompleted = () => {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['dashboard-data', 'student'] })
       void queryClient.invalidateQueries({ queryKey: ['dashboard-modules', 'student'] })
+      void queryClient.invalidateQueries({ queryKey: ['student-course-detail'] })
+      void queryClient.invalidateQueries({ queryKey: ['student-supplements', 'next-lesson'] })
     },
   })
 }

@@ -1,16 +1,15 @@
-import { Calendar, Clock, AlertCircle, CheckCircle2, Video, FileText, Star, ArrowUpRight } from 'lucide-react'
+import { Calendar, Clock, AlertCircle, CheckCircle2, Video, Star, ArrowUpRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/hooks/useAuth'
 import { resolveRoleDashboardPath } from '../utils/navigation'
 import { DashboardShell } from '../components/DashboardShell'
 import { LoadingState } from '../components/LoadingState'
-import { ErrorState } from '../components/ErrorState'
 import { Button } from '@/components/ui/button'
 import { useStudentCalendar } from '../hooks/useStudentSupplements'
 import type { DashboardRole } from '../services/dashboard.api'
 
-const typeConfig = {
+const typeConfig: Record<string, any> = {
   deadline: { icon: AlertCircle, color: 'text-orange-500 dark:text-orange-400', bg: 'bg-orange-500/10', label: 'Échéance' },
   live: { icon: Video, color: 'text-blue-500 dark:text-blue-400', bg: 'bg-blue-500/10', label: 'Live' },
   exam: { icon: Star, color: 'text-red-500 dark:text-red-400', bg: 'bg-red-500/10', label: 'Examen' },
@@ -20,7 +19,7 @@ const typeConfig = {
 const StudentCalendarPage: React.FC = () => {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const { data: events, isLoading } = useStudentCalendar()
+  const { data: events = [], isLoading } = useStudentCalendar()
 
   if (!user) return <LoadingState fullscreen />
 
@@ -33,8 +32,10 @@ const StudentCalendarPage: React.FC = () => {
     navigate(resolveRoleDashboardPath(role))
   }
 
-  const upcomingEvents = events.filter(e => new Date(e.date) >= new Date()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-  const pastEvents = events.filter(e => new Date(e.date) < new Date())
+  if (isLoading) return <LoadingState fullscreen />
+
+  const upcomingEvents = events.filter((e: any) => new Date(e.date) >= new Date()).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  const pastEvents = events.filter((e: any) => new Date(e.date) < new Date())
 
   return (
     <DashboardShell
@@ -115,7 +116,7 @@ const StudentCalendarPage: React.FC = () => {
                           <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest">
                             <span className="flex items-center gap-1"><Calendar size={12} />{new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                             <span className="flex items-center gap-1"><Clock size={12} />{event.time}</span>
-                            <span className="text-[#3054ff]">{event.course}</span>
+                            <span className="text-[#3054ff]">{event.course_title ?? 'General'}</span>
                           </div>
                         </div>
                       </div>

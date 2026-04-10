@@ -1,4 +1,4 @@
-import { BookOpen, Layers, Sparkles, PlayCircle, Clock, ChevronRight, ArrowUpRight } from 'lucide-react'
+import { BookOpen, Layers, PlayCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -105,7 +105,9 @@ const StudentCoursesPage: React.FC = () => {
                   >
                     <div className="aspect-video relative overflow-hidden">
                       <img
-                        src={courseItem.course.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80'}
+                        src={courseItem.course.thumbnail
+                          ? `${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${courseItem.course.thumbnail}`
+                          : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80'}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 opacity-80 group-hover:opacity-100"
                         alt={courseItem.course.title}
                       />
