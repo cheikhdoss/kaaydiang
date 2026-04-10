@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { BookOpenCheck, ShieldCheck, UserCog, Users } from 'lucide-react'
+import { BookOpenCheck, ChevronLeft, ChevronRight, ScrollText, ShieldCheck, UserCog, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,7 @@ import { Gauge } from '@/components/ui/gauge'
 import { dashboardPaths } from '../utils/navigation'
 import { ActionFeedback } from './ActionFeedback'
 import { useAdminUsers, useUpdateAdminUserRole, useUpdateAdminUserStatus } from '../hooks/useAdminUsers'
+import { useAdminActivityLogs } from '../hooks/useAdminActivityLogs'
 import { useAdminModules } from '../hooks/useAdminModules'
 import type { AdminDashboardPayload } from '../services/dashboard.api'
 
@@ -20,6 +21,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data }) => {
   const updateRole = useUpdateAdminUserRole()
   const updateStatus = useUpdateAdminUserStatus()
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [logPage, setLogPage] = useState(1)
+  const { data: activityPage, isLoading: logsLoading, isError: logsError } = useAdminActivityLogs(logPage)
 
   const { data: modulesData } = useAdminModules()
   const recentUsers = modulesData?.modules.recent_users ?? []
@@ -39,6 +42,127 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data }) => {
   return (
     <>
       {feedback ? <div className='mb-4'><ActionFeedback type={feedback.type} message={feedback.message} /></div> : null}
+      <div
+        id="journal-systeme"
+        className="mb-8 rounded-2xl border border-[#3054ff]/25 bg-gradient-to-br from-black/50 to-[#1a1f3a]/40 p-5 shadow-[0_0_40px_-12px_rgba(48,84,255,0.35)]"
+      >
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <ScrollText className="h-5 w-5 text-[#8ea0ff]" />
+            <h4 className="text-sm font-semibold text-white/95">Journal d&apos;activite systeme</h4>
+          </div>
+          <p className="text-xs text-white/55">
+            Traces des appels API (methodes, chemins, acteurs, codes HTTP). Consultation de cette page n&apos;est pas
+            enregistree pour eviter le bruit.
+          </p>
+        </div>
+
+        {logsLoading ? (
+          <p className="py-8 text-center text-sm text-white/60">Chargement du journal...</p>
+        ) : logsError ? (
+          <p className="py-8 text-center text-sm text-red-300/90">Impossible de charger le journal.</p>
+        ) : (
+          <>
+            <div className="max-h-[420px] overflow-auto rounded-xl border border-white/10">
+              <table className="w-full min-w-[720px] border-collapse text-left text-xs text-white/85">
+                <thead className="sticky top-0 z-10 bg-[#0d1020]/95 backdrop-blur">
+                  <tr className="border-b border-white/10">
+                    <th className="whitespace-nowrap px-3 py-2.5 font-semibold text-white/70">Date</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 font-semibold text-white/70">Acteur</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 font-semibold text-white/70">Action</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 font-semibold text-white/70">Methode</th>
+                    <th className="min-w-[180px] px-3 py-2.5 font-semibold text-white/70">Chemin</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 font-semibold text-white/70">HTTP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(activityPage?.data ?? []).length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-8 text-center text-white/55">
+                        Aucune activite enregistree pour le moment.
+                      </td>
+                    </tr>
+                  ) : (
+                    (activityPage?.data ?? []).map((row) => {
+                      const when = new Date(row.created_at)
+                      const actor =
+                        row.user != null
+                          ? `${row.user.first_name} ${row.user.last_name} (${row.user.role})`
+                          : row.actor_email ?? '—'
+                      return (
+                        <tr key={row.id} className="border-b border-white/5 bg-white/[0.02] hover:bg-white/[0.05]">
+                          <td className="whitespace-nowrap px-3 py-2.5 text-white/65">
+                            {when.toLocaleString('fr-FR', {
+                              dateStyle: 'short',
+                              timeStyle: 'medium',
+                            })}
+                          </td>
+                          <td className="max-w-[160px] truncate px-3 py-2.5" title={actor}>
+                            {actor}
+                          </td>
+                          <td className="max-w-[220px] truncate px-3 py-2.5 text-white/80" title={row.action_summary}>
+                            {row.action_summary}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[#9dacf7]">{row.method}</td>
+                          <td className="max-w-[280px] truncate px-3 py-2.5 font-mono text-white/70" title={row.path}>
+                            {row.path}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2.5">
+                            <span
+                              className={
+                                row.status_code >= 200 && row.status_code < 300
+                                  ? 'text-emerald-300/90'
+                                  : row.status_code >= 400
+                                    ? 'text-red-300/90'
+                                    : 'text-amber-200/90'
+                              }
+                            >
+                              {row.status_code}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {activityPage != null && activityPage.last_page > 1 ? (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-white/65">
+                <span>
+                  Page {activityPage.current_page} / {activityPage.last_page} — {activityPage.total} entrees
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="border-white/20 bg-transparent text-white hover:bg-white/10"
+                    disabled={activityPage.current_page <= 1}
+                    onClick={() => setLogPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    Precedent
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="border-white/20 bg-transparent text-white hover:bg-white/10"
+                    disabled={activityPage.current_page >= activityPage.last_page}
+                    onClick={() => setLogPage((p) => p + 1)}
+                  >
+                    Suivant
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
           <Gauge
@@ -72,9 +196,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data }) => {
                       navigate(dashboardPaths.admin)
                       return
                     }
-                    if (module.key === 'platform-health') {
+                                       if (module.key === 'platform-health') {
                       setFeedback({ type: 'success', message: 'Indicateurs plateforme synchronises.' })
                       navigate(dashboardPaths.admin)
+                      return
+                    }
+                    if (module.key === 'system-audit') {
+                      document.getElementById('journal-systeme')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                       return
                     }
                     setFeedback({ type: 'success', message: `${module.cta} disponible.` })

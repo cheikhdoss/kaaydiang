@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\CourseManagementController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\LessonManagementController;
 use App\Http\Controllers\Api\StudentLearningController;
+use App\Http\Controllers\Api\SystemActivityLogController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -54,5 +55,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/users', [AdminManagementController::class, 'users']);
         Route::patch('/users/{user}/role', [AdminManagementController::class, 'updateRole']);
         Route::patch('/users/{user}/status', [AdminManagementController::class, 'updateStatus']);
+        Route::get('/activity-logs', [SystemActivityLogController::class, 'index']);
     });
 });

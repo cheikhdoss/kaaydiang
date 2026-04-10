@@ -21,7 +21,8 @@ import {
   Moon,
   Calendar,
   MessageSquare,
-  PlayCircle
+  PlayCircle,
+  ScrollText,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
@@ -49,8 +50,18 @@ const navItems: NavItem[] = [
   { label: 'Messages', icon: MessageSquare, path: dashboardPaths.studentMessages, roles: ['student'] },
   { label: 'Gestion Cours', icon: BookOpen, path: dashboardPaths.instructor, roles: ['instructor'] },
   { label: 'Utilisateurs', icon: User, path: dashboardPaths.adminUsers, roles: ['admin'] },
+  { label: 'Logs système', icon: ScrollText, path: `${dashboardPaths.admin}#journal-systeme`, roles: ['admin'] },
   { label: 'Paramètres', icon: Settings, path: '#', roles: ['student', 'instructor', 'admin'] },
 ]
+
+function isNavItemActive(pathname: string, hash: string, itemPath: string): boolean {
+  if (!itemPath.includes('#')) {
+    return pathname === itemPath
+  }
+  const [base, fragment] = itemPath.split('#')
+  const expectedHash = fragment ? `#${fragment}` : ''
+  return pathname === base && hash === expectedHash
+}
 
 interface DashboardShellProps {
   title: string
@@ -130,7 +141,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
 
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto no-scrollbar">
           {filteredNavItems.map((item) => {
-            const isActive = location.pathname === item.path
+            const isActive = isNavItemActive(location.pathname, location.hash, item.path)
             return (
               <Link
                 key={item.label}

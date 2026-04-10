@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { resolveDashboardPath, useAuth } from '@/hooks/useAuth'
 import { DashboardShell } from '../components/DashboardShell'
 import { StudentDashboard } from '../components/StudentDashboard'
@@ -24,6 +24,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ forcedRole }) => {
   const { user, logout } = useAuth()
   const { role } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const activeRole: DashboardRole =
     forcedRole ??
@@ -40,6 +41,16 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ forcedRole }) => {
       navigate(resolveDashboardPath(user.role), { replace: true })
     }
   }, [forcedRole, navigate, role, user?.role])
+
+  useEffect(() => {
+    if (activeRole !== 'admin' || location.hash !== '#journal-systeme') return
+    if (isLoading || data?.role !== 'admin') return
+    const id = 'journal-systeme'
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [activeRole, data?.role, isLoading, location.hash])
 
   const handleLogout = async () => {
     await logout()

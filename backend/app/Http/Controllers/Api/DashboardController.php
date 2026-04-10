@@ -327,6 +327,12 @@ class DashboardController extends Controller
                     'description' => 'Suivre indicateurs globaux et stabilite.',
                     'cta' => 'Consulter',
                 ],
+                [
+                    'key' => 'system-audit',
+                    'title' => 'Journal systeme',
+                    'description' => 'Historique des actions et appels API sur la plateforme.',
+                    'cta' => 'Voir le journal',
+                ],
             ],
         ]);
     }

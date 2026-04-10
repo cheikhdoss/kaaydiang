@@ -313,6 +313,44 @@ export const updateAdminUserStatus = async (userId: number, isActive: boolean) =
   return response.data as { message: string }
 }
 
+export interface SystemActivityLogItem {
+  id: number
+  user_id: number | null
+  actor_email: string | null
+  method: string
+  path: string
+  route_name: string | null
+  action_summary: string
+  status_code: number
+  ip_address: string | null
+  user_agent: string | null
+  meta: { route_parameters?: Record<string, unknown> } | null
+  created_at: string
+  updated_at: string
+  user: {
+    id: number
+    first_name: string
+    last_name: string
+    email: string
+    role: DashboardRole
+  } | null
+}
+
+export interface PaginatedSystemActivityLogsPayload {
+  data: SystemActivityLogItem[]
+  current_page: number
+  last_page: number
+  per_page: number
+  total: number
+}
+
+export const fetchAdminActivityLogs = async (page = 1, perPage = 20) => {
+  const response = await api.get('/admin/activity-logs', {
+    params: { page, per_page: perPage },
+  })
+  return response.data as PaginatedSystemActivityLogsPayload
+}
+
 export interface InstructorCourseItem {
   id: number
   title: string
