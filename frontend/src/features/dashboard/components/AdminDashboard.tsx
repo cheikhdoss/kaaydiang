@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Gauge } from '@/components/ui/gauge'
 import { dashboardPaths } from '../utils/navigation'
 import { ActionFeedback } from './ActionFeedback'
+import { AdminDashboardCharts } from './AdminDashboardCharts'
 import { useAdminUsers, useUpdateAdminUserRole, useUpdateAdminUserStatus } from '../hooks/useAdminUsers'
 import { useAdminActivityLogs } from '../hooks/useAdminActivityLogs'
 import { useAdminModules } from '../hooks/useAdminModules'
@@ -42,6 +43,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data }) => {
   return (
     <>
       {feedback ? <div className='mb-4'><ActionFeedback type={feedback.type} message={feedback.message} /></div> : null}
+      <AdminDashboardCharts
+        data={data}
+        modulesData={modulesData}
+        activitySample={activityPage?.data}
+      />
       <div
         id="journal-systeme"
         className="mb-8 rounded-2xl border border-[#3054ff]/25 bg-gradient-to-br from-black/50 to-[#1a1f3a]/40 p-5 shadow-[0_0_40px_-12px_rgba(48,84,255,0.35)]"
