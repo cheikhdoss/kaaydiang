@@ -2,7 +2,6 @@ import { createBrowserRouter } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import ProtectedRoute from './ProtectedRoute';
 import PublicRoute from './PublicRoute';
-import AuthLayout from '../shared/components/layout/AuthLayout';
 import { dashboardPaths } from '../features/dashboard/utils/navigation';
 
 const LandingPage = lazy(() => import('../features/landing/LandingPage'));
@@ -42,7 +41,9 @@ const StudentLessonPage = lazy(() => import('../features/dashboard/pages/Student
 const AdminUsersPage = lazy(() => import('../features/dashboard/pages/AdminUsersPage'));
 const AdminModerationPage = lazy(() => import('../features/dashboard/pages/AdminModerationPage'));
 const AdminHealthPage = lazy(() => import('../features/dashboard/pages/AdminHealthPage'));
+const AdminActivityPage = lazy(() => import('../features/dashboard/pages/AdminActivityPage'));
 const ScrollExpansionDemo = lazy(() => import('../features/demo/ScrollExpansionDemo'));
+const ProjectPresentationPage = lazy(() => import('../features/presentation/ProjectPresentationPage'));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen bg-black">
@@ -83,11 +84,9 @@ export const router = createBrowserRouter([
     path: '/forgot-password',
     element: (
       <PublicRoute>
-        <AuthLayout>
-          <Suspense fallback={<LoadingFallback />}>
-            <ForgotPasswordPage />
-          </Suspense>
-        </AuthLayout>
+        <Suspense fallback={<LoadingFallback />}>
+          <ForgotPasswordPage />
+        </Suspense>
       </PublicRoute>
     ),
   },
@@ -422,10 +421,28 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: dashboardPaths.adminActivity,
+    element: (
+      <ProtectedRoute allowedRoles={['admin']}>
+        <Suspense fallback={<LoadingFallback />}>
+          <AdminActivityPage />
+        </Suspense>
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/demo/scroll',
     element: (
       <Suspense fallback={<LoadingFallback />}>
         <ScrollExpansionDemo />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/presentation',
+    element: (
+      <Suspense fallback={<LoadingFallback />}>
+        <ProjectPresentationPage />
       </Suspense>
     ),
   },

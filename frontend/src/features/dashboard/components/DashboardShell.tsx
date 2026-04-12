@@ -70,6 +70,7 @@ const navItems: NavItem[] = [
   { label: 'Utilisateurs', icon: User, path: dashboardPaths.adminUsers, roles: ['admin'] },
   { label: 'Modération', icon: FileEdit, path: dashboardPaths.adminModeration, roles: ['admin'] },
   { label: 'Santé', icon: Activity, path: dashboardPaths.adminHealth, roles: ['admin'] },
+  { label: 'Logs & Charts', icon: BarChart3, path: dashboardPaths.adminActivity, roles: ['admin'] },
   { label: 'Paramètres', icon: Settings, path: '#', roles: ['student', 'instructor', 'admin'] },
 ]
 

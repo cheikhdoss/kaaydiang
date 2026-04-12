@@ -19,10 +19,62 @@ use App\Models\QuizOption;
 use App\Models\QuizQuestion;
 use App\Models\InstructorMessage;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class StudentLearningController extends Controller
 {
+    public function quizzes(Request $request)
+    {
+        $user = $request->user();
+
+        $courseIds = Enrollment::query()
+            ->where('user_id', $user->id)
+            ->pluck('course_id');
+
+        if ($courseIds->isEmpty()) {
+            return response()->json([]);
+        }
+
+        $quizzes = Quiz::query()
+            ->whereIn('course_id', $courseIds)
+            ->with('course:id,title')
+            ->withCount('questions')
+            ->latest('created_at')
+            ->limit(200)
+            ->get()
+            ->map(function (Quiz $quiz) use ($user) {
+                $latestAttempt = QuizAttempt::query()
+                    ->where('quiz_id', $quiz->id)
+                    ->where('user_id', $user->id)
+                    ->latest('attempted_at')
+                    ->first();
+
+                $totalPoints = (int) QuizQuestion::query()
+                    ->where('quiz_id', $quiz->id)
+                    ->sum('points');
+
+                return [
+                    'id' => $quiz->id,
+                    'title' => $quiz->title,
+                    'description' => $quiz->description,
+                    'course_id' => $quiz->course_id,
+                    'course_title' => $quiz->course?->title ?? 'Cours',
+                    'pass_score' => (int) ($quiz->pass_score ?? 60),
+                    'question_count' => (int) ($quiz->questions_count ?? 0),
+                    'total_points' => $totalPoints,
+                    'has_attempted' => $latestAttempt !== null,
+                    'last_score' => $latestAttempt ? (int) $latestAttempt->score : null,
+                    'is_passed' => $latestAttempt ? (bool) $latestAttempt->is_passed : null,
+                    'last_attempted_at' => $latestAttempt?->attempted_at?->toISOString(),
+                ];
+            })
+            ->values();
+
+        return response()->json($quizzes);
+    }
+
     public function catalog()
     {
         $courses = Course::query()
@@ -279,6 +331,8 @@ class StudentLearningController extends Controller
                     'due_date' => $assignment->due_date?->toISOString(),
                     'status' => $latestSubmission?->status ?? 'pending',
                     'submitted_at' => $latestSubmission?->submitted_at?->toISOString(),
+                    'score' => $latestSubmission?->score,
+                    'feedback' => $latestSubmission?->instructor_feedback,
                 ];
             })
             ->values();
@@ -790,15 +844,59 @@ class StudentLearningController extends Controller
             return response()->json(['message' => 'You must enroll to submit this assignment.'], 403);
         }
 
-        $validated = $request->validate([
-            'files' => ['required', 'array', 'min:1'],
-            'files.*' => ['file', 'max:51200', 'mimes:pdf,zip'],
-            'note' => ['nullable', 'string', 'max:2000'],
-        ]);
+        $postMaxBytes = $this->iniSizeToBytes((string) ini_get('post_max_size'));
+        $uploadMaxBytes = $this->iniSizeToBytes((string) ini_get('upload_max_filesize'));
+        $contentLength = (int) ($request->server('CONTENT_LENGTH') ?? 0);
 
-        $uploadedFiles = collect($request->file('files', []))
+        $files = $request->file('files', []);
+
+        if (($files === null || $files === []) && $request->hasFile('files[]')) {
+            $files = $request->file('files[]', []);
+        }
+
+        if ($files instanceof UploadedFile) {
+            $files = [$files];
+        }
+
+        if (!is_array($files)) {
+            $files = [];
+        }
+
+        if (empty($files) && $contentLength > 0 && $postMaxBytes > 0 && $contentLength > $postMaxBytes) {
+            $maxMb = max(1, (int) floor($postMaxBytes / (1024 * 1024)));
+
+            return response()->json([
+                'message' => "Payload too large. Server limit is {$maxMb} MB.",
+                'errors' => [
+                    'files' => ["La taille maximale acceptee par le serveur est {$maxMb} Mo."],
+                ],
+            ], 422);
+        }
+
+        $effectiveMaxBytes = min(
+            50 * 1024 * 1024,
+            $uploadMaxBytes > 0 ? $uploadMaxBytes : PHP_INT_MAX,
+            $postMaxBytes > 0 ? $postMaxBytes : PHP_INT_MAX,
+        );
+        $effectiveMaxKb = max(1, (int) floor($effectiveMaxBytes / 1024));
+        $effectiveMaxMb = max(1, (int) floor($effectiveMaxBytes / (1024 * 1024)));
+
+        $validated = Validator::make([
+            'files' => $files,
+            'note' => $request->input('note'),
+        ], [
+            'files' => ['required', 'array', 'min:1'],
+            'files.*' => ['file', "max:{$effectiveMaxKb}", 'mimes:pdf,zip'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ], [
+            'files.required' => 'Ajoutez au moins un fichier PDF ou ZIP.',
+            'files.*.max' => "Chaque fichier doit faire au maximum {$effectiveMaxMb} Mo.",
+            'files.*.mimes' => 'Formats autorises: PDF ou ZIP.',
+        ])->validate();
+
+        $uploadedFiles = collect($validated['files'] ?? [])
             ->filter()
-            ->map(function ($file) {
+            ->map(function (UploadedFile $file) {
                 $path = $file->store('submissions', 'public');
 
                 return [
@@ -1068,13 +1166,13 @@ class StudentLearningController extends Controller
                     $pointsEarned = $isCorrect ? $question->points : 0;
                     $storedAnswerData = ['selected_option_ids' => $selectedOptionIds];
                 } elseif ($question->question_type === 'true_false') {
-                    $submittedValue = strtolower((string) ($answerData['value'] ?? ''));
+                    $submittedValue = $this->normalizeTrueFalseValue($answerData['value'] ?? null);
                     $correctOption = $question->options->where('is_correct', true)->first();
-                    $correctValue = $correctOption ? strtolower($correctOption->option_text) : 'true';
+                    $correctValue = $this->normalizeTrueFalseValue($correctOption?->option_text);
 
-                    $isCorrect = ($submittedValue === $correctValue || $submittedValue === substr($correctValue, 0, 1));
+                    $isCorrect = ($submittedValue !== null && $correctValue !== null && $submittedValue === $correctValue);
                     $pointsEarned = $isCorrect ? $question->points : 0;
-                    $storedAnswerData = ['value' => $submittedValue];
+                    $storedAnswerData = ['value' => $submittedValue ?? ''];
                 } elseif ($question->question_type === 'short_answer') {
                     // Pour short_answer, on stocke la réponse mais la correction
                     // nécessite une intervention manuelle (on met 0 par défaut)
@@ -1212,12 +1310,12 @@ class StudentLearningController extends Controller
                 $detail['all_options'] = $allOptions;
             } elseif ($question->question_type === 'true_false') {
                 $correctOption = $question->options->where('is_correct', true)->first();
-                $correctValue = $correctOption ? strtolower($correctOption->option_text) : 'true';
+                $correctValue = $this->normalizeTrueFalseValue($correctOption?->option_text) ?? 'true';
 
                 $detail['correct_answer'] = $correctValue;
                 $detail['all_options'] = [
-                    ['value' => 'true', 'text' => 'Vrai', 'is_correct' => $correctValue === 'true' || $correctValue === 'vrai'],
-                    ['value' => 'false', 'text' => 'Faux', 'is_correct' => $correctValue === 'false' || $correctValue === 'faux'],
+                    ['value' => 'true', 'text' => 'Vrai', 'is_correct' => $correctValue === 'true'],
+                    ['value' => 'false', 'text' => 'Faux', 'is_correct' => $correctValue === 'false'],
                 ];
             } elseif ($question->question_type === 'short_answer') {
                 $detail['note'] = 'Cette question nécessite une correction manuelle par l\'instructeur.';
@@ -1247,5 +1345,43 @@ class StudentLearningController extends Controller
             ],
             'answers' => $detailedAnswers,
         ]);
+    }
+
+    private function normalizeTrueFalseValue(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+
+        return match ($normalized) {
+            'true', 'vrai', 'v' => 'true',
+            'false', 'faux', 'f' => 'false',
+            default => null,
+        };
+    }
+
+    private function iniSizeToBytes(string $value): int
+    {
+        $trimmed = trim($value);
+
+        if ($trimmed === '') {
+            return 0;
+        }
+
+        if (!preg_match('/^(\d+)([KMG]?)$/i', $trimmed, $matches)) {
+            return 0;
+        }
+
+        $size = (int) $matches[1];
+        $unit = strtoupper($matches[2] ?? '');
+
+        return match ($unit) {
+            'G' => $size * 1024 * 1024 * 1024,
+            'M' => $size * 1024 * 1024,
+            'K' => $size * 1024,
+            default => $size,
+        };
     }
 }

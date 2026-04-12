@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { LessonEditor } from '@/components/lesson-blocks/LessonEditor'
 import { resolveRoleDashboardPath } from '../utils/navigation'
+import { resolveCourseThumbnail } from '../utils/courseThumbnail'
 import { DashboardShell } from '../components/DashboardShell'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
@@ -290,7 +291,7 @@ const InstructorCoursesPage: React.FC = () => {
     setCourseDescription(courseDetail.description ?? '')
     setCourseLevel(courseDetail.level)
     setCoursePrice(String(courseDetail.price ?? 0))
-    setCourseThumbnailPreview(courseDetail.thumbnail ? `${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${courseDetail.thumbnail}` : null)
+    setCourseThumbnailPreview(resolveCourseThumbnail(courseDetail.thumbnail, ''))
   }, [courseDetail])
 
   const parsedCoursePrice = useMemo(() => {
@@ -766,7 +767,7 @@ const InstructorCoursesPage: React.FC = () => {
                   <div className="w-full h-32 rounded-xl bg-slate-200 dark:bg-white/10 mb-4 overflow-hidden relative">
                     {course.thumbnail ? (
                       <img
-                        src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${course.thumbnail}`}
+                        src={resolveCourseThumbnail(course.thumbnail)}
                         alt={course.title}
                         className="w-full h-full object-cover"
                       />

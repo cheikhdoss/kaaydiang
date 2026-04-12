@@ -17,6 +17,7 @@ import { DashboardShell } from '../components/DashboardShell'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
 import { ConfirmationModal } from '../components/ConfirmationModal'
+import { resolveCourseThumbnail } from '../utils/courseThumbnail'
 import { useAdminCourses, useToggleAdminCourseStatus, useDeleteAdminCourse } from '../hooks/useAdminHealth'
 import type { DashboardRole, AdminCourseModerationItem } from '../services/dashboard.api'
 
@@ -192,7 +193,7 @@ const AdminModerationPage: React.FC = () => {
                   <div className="w-24 h-16 rounded-xl bg-slate-200 dark:bg-white/10 overflow-hidden flex-shrink-0">
                     {course.thumbnail ? (
                       <img
-                        src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${course.thumbnail}`}
+                        src={resolveCourseThumbnail(course.thumbnail)}
                         alt={course.title}
                         className="w-full h-full object-cover"
                       />

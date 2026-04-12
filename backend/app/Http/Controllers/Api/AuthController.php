@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\LogsActivity;
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,6 +14,8 @@ use Illuminate\Validation\Rules;
 
 class AuthController extends Controller
 {
+    use LogsActivity;
+
     public function register(Request $request)
     {
         $request->validate([
@@ -19,7 +23,6 @@ class AuthController extends Controller
             'last_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => ['nullable', 'in:student,instructor'],
         ]);
 
         $user = User::create([
@@ -28,10 +31,16 @@ class AuthController extends Controller
             'name' => $request->first_name . ' ' . $request->last_name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => $request->input('role', 'student'),
+            'role' => User::ROLE_STUDENT,
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        $this->logActivity('user.registered', "Nouveau compte créé: {$user->email}", [
+            'user_id' => $user->id,
+            'model_type' => User::class,
+            'model_id' => $user->id,
+        ]);
 
         return response()->json([
             'user' => $user,
@@ -58,6 +67,12 @@ class AuthController extends Controller
 
         $user->tokens()->delete();
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        $this->logActivity('user.logged_in', "Connexion: {$user->email}", [
+            'user_id' => $user->id,
+            'model_type' => User::class,
+            'model_id' => $user->id,
+        ]);
 
         return response()->json([
             'user' => $user,

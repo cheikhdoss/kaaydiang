@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\LogsActivity;
+use App\Models\ActivityLog;
 use App\Models\Assignment;
 use App\Models\AssignmentSubmission;
 use App\Models\Certificate;
@@ -19,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 
 class AdminHealthController extends Controller
 {
+    use LogsActivity;
     /**
      * Get platform health overview stats
      */
@@ -189,6 +192,16 @@ class AdminHealthController extends Controller
 
         $course->update(['is_published' => (bool) $validated['is_published']]);
 
+        $action = $validated['is_published'] ? 'admin.course.approved' : 'admin.course.unpublished';
+        $msg = $validated['is_published']
+            ? "Admin a approuvé le cours: {$course->title}"
+            : "Admin a dépublié le cours: {$course->title}";
+
+        $this->logActivity($action, $msg, [
+            'model_type' => Course::class,
+            'model_id' => $course->id,
+        ]);
+
         return response()->json([
             'message' => $validated['is_published'] ? 'Course published.' : 'Course unpublished.',
             'course' => [
@@ -210,8 +223,182 @@ class AdminHealthController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        $title = $course->title;
+        $courseId = $course->id;
         $course->delete();
 
+        $this->logActivity('admin.course.deleted', "Admin a supprimé le cours: {$title}", [
+            'model_type' => Course::class,
+            'model_id' => $courseId,
+            'properties' => ['course_title' => $title],
+        ]);
+
         return response()->json(['message' => 'Course deleted successfully.']);
+    }
+
+    /**
+     * Get activity logs (paginated)
+     */
+    public function activityLogs(Request $request)
+    {
+        $user = $request->user();
+
+        if ($user->role !== User::ROLE_ADMIN) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $validated = $request->validate([
+            'action' => ['nullable', 'string'],
+            'user_id' => ['nullable', 'integer'],
+            'days' => ['nullable', 'integer', 'min:1', 'max:365'],
+            'page' => ['nullable', 'integer'],
+            'per_page' => ['nullable', 'integer', 'min:10', 'max:100'],
+        ]);
+
+        $query = ActivityLog::query()
+            ->with(['user:id,first_name,last_name,email,role']);
+
+        if (!empty($validated['action'])) {
+            $query->where('action', 'like', "%{$validated['action']}%");
+        }
+
+        if (!empty($validated['user_id'])) {
+            $query->byUser((int) $validated['user_id']);
+        }
+
+        $days = $validated['days'] ?? 30;
+        $query->lastDays($days);
+
+        $logs = $query
+            ->latest('created_at')
+            ->paginate($validated['per_page'] ?? 30);
+
+        $logs->getCollection()->transform(function (ActivityLog $log) {
+            return [
+                'id' => $log->id,
+                'action' => $log->action,
+                'description' => $log->description,
+                'user' => $log->user ? [
+                    'id' => $log->user->id,
+                    'name' => trim("{$log->user->first_name} {$log->user->last_name}"),
+                    'email' => $log->user->email,
+                    'role' => $log->user->role,
+                ] : null,
+                'model_type' => $log->model_type,
+                'model_id' => $log->model_id,
+                'properties' => $log->properties,
+                'ip_address' => $log->ip_address,
+                'created_at' => $log->created_at->toISOString(),
+            ];
+        });
+
+        return response()->json($logs);
+    }
+
+    /**
+     * Get chart data for admin dashboard
+     */
+    public function chartData(Request $request)
+    {
+        $user = $request->user();
+
+        if ($user->role !== User::ROLE_ADMIN) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        // Daily registrations (last 30 days)
+        $registrations = collect(range(29, 0))->map(function (int $daysAgo) {
+            $date = now()->subDays($daysAgo);
+            return [
+                'date' => $date->format('Y-m-d'),
+                'label' => $date->format('d/m'),
+                'count' => User::whereDate('created_at', $date)->count(),
+            ];
+        })->values();
+
+        // Daily enrollments (last 30 days)
+        $enrollments = collect(range(29, 0))->map(function (int $daysAgo) {
+            $date = now()->subDays($daysAgo);
+            return [
+                'date' => $date->format('Y-m-d'),
+                'label' => $date->format('d/m'),
+                'count' => Enrollment::whereDate('enrolled_at', $date)->count(),
+            ];
+        })->values();
+
+        // Daily course creations (last 30 days)
+        $courseCreations = collect(range(29, 0))->map(function (int $daysAgo) {
+            $date = now()->subDays($daysAgo);
+            return [
+                'date' => $date->format('Y-m-d'),
+                'label' => $date->format('d/m'),
+                'count' => Course::whereDate('created_at', $date)->count(),
+            ];
+        })->values();
+
+        // Activity by type (last 7 days)
+        $activityByType = collect(range(6, 0))->map(function (int $daysAgo) {
+            $date = now()->subDays($daysAgo);
+
+            $userActions = ActivityLog::whereDate('created_at', $date)
+                ->where('action', 'like', 'user.%')
+                ->count();
+
+            $courseActions = ActivityLog::whereDate('created_at', $date)
+                ->where(function ($query) {
+                    $query->where('action', 'like', 'course.%')
+                        ->orWhere('action', 'like', 'admin.course.%');
+                })
+                ->count();
+
+            $assignmentActions = ActivityLog::whereDate('created_at', $date)
+                ->where('action', 'like', 'assignment.%')
+                ->count();
+
+            return [
+                'date' => $date->format('Y-m-d'),
+                'label' => $date->format('d/m'),
+                'user_actions' => $userActions,
+                'course_actions' => $courseActions,
+                'assignment_actions' => $assignmentActions,
+            ];
+        })->values();
+
+        // Role distribution
+        $roleDistribution = [
+            ['role' => 'Étudiants', 'count' => User::where('role', User::ROLE_STUDENT)->count(), 'color' => '#3b82f6'],
+            ['role' => 'Instructeurs', 'count' => User::where('role', User::ROLE_INSTRUCTOR)->count(), 'color' => '#10b981'],
+            ['role' => 'Administrateurs', 'count' => User::where('role', User::ROLE_ADMIN)->count(), 'color' => '#f59e0b'],
+        ];
+
+        // Level distribution
+        $levelDistribution = Course::selectRaw('level, COUNT(*) as count')
+            ->groupBy('level')
+            ->get()
+            ->map(function ($row) {
+                $colors = ['beginner' => '#22c55e', 'intermediate' => '#f59e0b', 'advanced' => '#ef4444'];
+                $labels = ['beginner' => 'Débutant', 'intermediate' => 'Intermédiaire', 'advanced' => 'Avancé'];
+                return [
+                    'level' => $labels[$row->level] ?? $row->level,
+                    'count' => $row->count,
+                    'color' => $colors[$row->level] ?? '#94a3b8',
+                ];
+            })->values();
+
+        // Publication status
+        $publicationStatus = [
+            ['status' => 'Publiés', 'count' => Course::where('is_published', true)->count(), 'color' => '#10b981'],
+            ['status' => 'Brouillons', 'count' => Course::where('is_published', false)->count(), 'color' => '#6b7280'],
+        ];
+
+        return response()->json([
+            'registrations' => $registrations,
+            'enrollments' => $enrollments,
+            'course_creations' => $courseCreations,
+            'activity_by_type' => $activityByType,
+            'role_distribution' => $roleDistribution,
+            'level_distribution' => $levelDistribution,
+            'publication_status' => $publicationStatus,
+        ]);
     }
 }

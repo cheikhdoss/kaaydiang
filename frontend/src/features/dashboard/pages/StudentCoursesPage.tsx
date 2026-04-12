@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { dashboardPaths, resolveRoleDashboardPath } from '../utils/navigation'
+import { resolveCourseThumbnail } from '../utils/courseThumbnail'
 import { DashboardShell } from '../components/DashboardShell'
 import { ErrorState } from '../components/ErrorState'
 import { LoadingState } from '../components/LoadingState'
@@ -105,9 +106,7 @@ const StudentCoursesPage: React.FC = () => {
                   >
                     <div className="aspect-video relative overflow-hidden">
                       <img
-                        src={courseItem.course.thumbnail
-                          ? `${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${courseItem.course.thumbnail}`
-                          : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80'}
+                        src={resolveCourseThumbnail(courseItem.course.thumbnail, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80')}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 opacity-80 group-hover:opacity-100"
                         alt={courseItem.course.title}
                       />

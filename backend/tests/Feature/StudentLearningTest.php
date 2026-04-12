@@ -10,6 +10,8 @@ use App\Models\AssignmentSubmission;
 use App\Models\Certificate;
 use App\Models\User;
 use App\Models\Quiz;
+use App\Models\QuizOption;
+use App\Models\QuizQuestion;
 use App\Models\QuizAttempt;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -336,5 +338,117 @@ class StudentLearningTest extends TestCase
             'course_id' => $course->id,
             'sender_role' => 'student',
         ]);
+    }
+
+    public function test_student_can_list_quizzes_for_enrolled_courses(): void
+    {
+        $instructor = User::factory()->create(['role' => User::ROLE_INSTRUCTOR]);
+        $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
+
+        $course = Course::query()->create([
+            'title' => 'Quiz Course',
+            'description' => 'Course with quiz',
+            'instructor_id' => $instructor->id,
+            'level' => 'beginner',
+            'price' => 0,
+            'is_published' => true,
+        ]);
+
+        $quiz = Quiz::query()->create([
+            'course_id' => $course->id,
+            'title' => 'Module 1 quiz',
+            'description' => 'Assess fundamentals',
+            'pass_score' => 60,
+        ]);
+
+        QuizQuestion::query()->create([
+            'quiz_id' => $quiz->id,
+            'question_text' => 'What is PHP?',
+            'question_type' => 'short_answer',
+            'order' => 1,
+            'points' => 5,
+        ]);
+
+        QuizAttempt::query()->create([
+            'quiz_id' => $quiz->id,
+            'user_id' => $student->id,
+            'score' => 75,
+            'is_passed' => true,
+            'attempted_at' => now()->subHour(),
+        ]);
+
+        Sanctum::actingAs($student);
+        $this->postJson('/api/student/enroll/'.$course->id)->assertCreated();
+
+        $this->getJson('/api/student/quizzes')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', $quiz->id)
+            ->assertJsonPath('0.course_id', $course->id)
+            ->assertJsonPath('0.question_count', 1)
+            ->assertJsonPath('0.total_points', 5)
+            ->assertJsonPath('0.has_attempted', true)
+            ->assertJsonPath('0.last_score', 75)
+            ->assertJsonPath('0.is_passed', true);
+    }
+
+    public function test_student_true_false_submission_handles_vrai_faux_option_labels(): void
+    {
+        $instructor = User::factory()->create(['role' => User::ROLE_INSTRUCTOR]);
+        $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
+
+        $course = Course::query()->create([
+            'title' => 'Boolean course',
+            'description' => 'True false quiz',
+            'instructor_id' => $instructor->id,
+            'level' => 'beginner',
+            'price' => 0,
+            'is_published' => true,
+        ]);
+
+        $quiz = Quiz::query()->create([
+            'course_id' => $course->id,
+            'title' => 'Boolean quiz',
+            'description' => null,
+            'pass_score' => 60,
+        ]);
+
+        $question = QuizQuestion::query()->create([
+            'quiz_id' => $quiz->id,
+            'question_text' => 'Le ciel est bleu.',
+            'question_type' => 'true_false',
+            'order' => 1,
+            'points' => 1,
+        ]);
+
+        QuizOption::query()->create([
+            'question_id' => $question->id,
+            'option_text' => 'Vrai',
+            'is_correct' => true,
+            'order' => 0,
+        ]);
+
+        QuizOption::query()->create([
+            'question_id' => $question->id,
+            'option_text' => 'Faux',
+            'is_correct' => false,
+            'order' => 1,
+        ]);
+
+        Sanctum::actingAs($student);
+        $this->postJson('/api/student/enroll/'.$course->id)->assertCreated();
+
+        $this->postJson('/api/student/quizzes/'.$quiz->id.'/submit', [
+            'answers' => [
+                [
+                    'question_id' => $question->id,
+                    'answer_data' => ['value' => 'true'],
+                ],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('result.score', 100)
+            ->assertJsonPath('result.is_passed', true)
+            ->assertJsonPath('result.correct_answers', 1);
     }
 }

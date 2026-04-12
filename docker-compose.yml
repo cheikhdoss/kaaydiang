@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: kaydjangue-db
+    container_name: kaaydiang-db
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -14,14 +12,17 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    networks:
+      - kaaydiang-network
 
   redis:
     image: redis:7-alpine
-    container_name: kaydjangue-redis
+    container_name: kaaydiang-redis
     ports:
       - "6379:6379"
     volumes:
@@ -33,7 +34,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - kaaydiang-network
+
+  # Optional: Adminer for database GUI management
+  adminer:
+    image: adminer:latest
+    container_name: kaaydiang-adminer
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - kaaydiang-network
+    profiles:
+      - tools
 
 volumes:
   postgres_data:
   redis_data:
+
+networks:
+  kaaydiang-network:
+    driver: bridge

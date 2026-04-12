@@ -1,15 +1,45 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import { Mail, ArrowLeft, Send, CheckCircle2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useAuth } from '../../../hooks/useAuth';
-import { Mail, ArrowLeft, Send } from 'lucide-react';
-import AuthLayout from '@/shared/components/layout/AuthLayout';
+
+function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+  return (
+    <input
+      type={type}
+      className={cn(
+        "flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20 transition-all duration-300",
+        className
+      )}
+      {...props}
+    />
+  );
+}
 
 const ForgotPasswordPage: React.FC = () => {
   const { resetPassword, loading, error } = useAuth();
   const [email, setEmail] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
+
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const rotateX = useTransform(mouseY, [-300, 300], [10, -10]);
+  const rotateY = useTransform(mouseX, [-300, 300], [-10, 10]);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    mouseX.set(e.clientX - rect.left - rect.width / 2);
+    mouseY.set(e.clientY - rect.top - rect.height / 2);
+  };
+
+  const handleMouseLeave = () => {
+    mouseX.set(0);
+    mouseY.set(0);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,105 +61,266 @@ const ForgotPasswordPage: React.FC = () => {
 
   const displayError = localError || error;
 
+  /* ──────────────── SUCCESS STATE ──────────────── */
   if (success) {
     return (
-      <AuthLayout>
+      <div className="min-h-screen w-screen bg-black relative overflow-hidden flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-900/40 via-black to-black" />
+        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[120vh] h-[60vh] rounded-b-[50%] bg-white/5 blur-[80px]" />
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center py-8"
+          className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[100vh] h-[60vh] rounded-b-full bg-white/10 blur-[60px]"
+          animate={{ opacity: [0.15, 0.3, 0.15], scale: [0.98, 1.02, 0.98] }}
+          transition={{ duration: 8, repeat: Infinity, repeatType: "mirror" }}
+        />
+        <motion.div
+          className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[90vh] h-[90vh] rounded-t-full bg-white/5 blur-[60px]"
+          animate={{ opacity: [0.3, 0.5, 0.3], scale: [1, 1.1, 1] }}
+          transition={{ duration: 6, repeat: Infinity, repeatType: "mirror", delay: 1 }}
+        />
+        <div className="absolute left-1/4 top-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px] animate-pulse opacity-40" />
+        <div className="absolute right-1/4 bottom-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px] animate-pulse opacity-40" />
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="w-full max-w-sm relative z-10 px-4"
+          style={{ perspective: 1500 }}
         >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-            className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-[#1ed760]/15"
-          >
-            <Mail className="h-10 w-10 text-[#1ed760]" />
-          </motion.div>
-          <h2 className="mb-2 text-2xl font-bold text-white">Email envoyé!</h2>
-          <p className="mb-4 text-white/65">
-            Vérifiez votre boîte de réception à <strong>{email}</strong>
-          </p>
-          <Link
-            to="/login"
-            className="inline-flex items-center gap-2 font-medium text-[#9db0ff] hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Retour à la connexion
-          </Link>
+          <div className="relative group">
+            <div className="relative bg-black/60 backdrop-blur-xl rounded-2xl p-6 border border-white/[0.08] shadow-2xl overflow-hidden text-center">
+              {/* Logo */}
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", duration: 0.8 }}
+                className="mx-auto w-12 h-12 rounded-full border border-white/20 flex items-center justify-center relative overflow-hidden mb-4"
+              >
+                <CheckCircle2 className="w-6 h-6 text-white" />
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50" />
+              </motion.div>
+
+              <motion.h2
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="text-2xl font-bold text-white mb-2"
+              >
+                Email envoyé !
+              </motion.h2>
+
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="text-white/50 text-sm mb-6"
+              >
+                Vérifiez votre boîte de réception à{' '}
+                <strong className="text-white/80">{email}</strong>
+              </motion.p>
+
+              <Link
+                to="/login"
+                className="inline-flex items-center justify-center gap-2 w-full relative overflow-hidden bg-white text-black font-semibold h-11 rounded-lg transition-all duration-300 hover:bg-white/90"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Retour à la connexion
+              </Link>
+            </div>
+          </div>
         </motion.div>
-      </AuthLayout>
+      </div>
     );
   }
 
+  /* ──────────────── FORM STATE ──────────────── */
   return (
-    <AuthLayout>
+    <div className="min-h-screen w-screen bg-black relative overflow-hidden flex items-center justify-center">
+      {/* Background gradient effect */}
+      <div className="absolute inset-0 bg-gradient-to-b from-gray-900/40 via-black to-black" />
+
+      {/* Top radial glow */}
+      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[120vh] h-[60vh] rounded-b-[50%] bg-white/5 blur-[80px]" />
+
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
+        className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[100vh] h-[60vh] rounded-b-full bg-white/10 blur-[60px]"
+        animate={{ opacity: [0.15, 0.3, 0.15], scale: [0.98, 1.02, 0.98] }}
+        transition={{ duration: 8, repeat: Infinity, repeatType: "mirror" }}
+      />
+
+      <motion.div
+        className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[90vh] h-[90vh] rounded-t-full bg-white/5 blur-[60px]"
+        animate={{ opacity: [0.3, 0.5, 0.3], scale: [1, 1.1, 1] }}
+        transition={{ duration: 6, repeat: Infinity, repeatType: "mirror", delay: 1 }}
+      />
+
+      {/* Animated glow spots */}
+      <div className="absolute left-1/4 top-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px] animate-pulse opacity-40" />
+      <div className="absolute right-1/4 bottom-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px] animate-pulse opacity-40" />
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="w-full max-w-sm relative z-10 px-4"
+        style={{ perspective: 1500 }}
       >
-        <div className="mb-6 text-center">
-          <p className="text-white/70">
-            Entrez votre email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {displayError && (
+        <motion.div
+          className="relative"
+          style={{ rotateX, rotateY }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          whileHover={{ z: 10 }}
+        >
+          <div className="relative group">
+            {/* Card glow effect */}
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-lg border border-red-300/40 bg-red-500/10 px-4 py-3 text-red-100"
-            >
-              {displayError}
-            </motion.div>
-          )}
+              className="absolute -inset-[1px] rounded-2xl opacity-0 group-hover:opacity-70 transition-opacity duration-700"
+              animate={{
+                boxShadow: [
+                  "0 0 10px 2px rgba(255,255,255,0.03)",
+                  "0 0 15px 5px rgba(255,255,255,0.05)",
+                  "0 0 10px 2px rgba(255,255,255,0.03)"
+                ],
+                opacity: [0.2, 0.4, 0.2]
+              }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", repeatType: "mirror" }}
+            />
 
-          <div>
-            <label className="mb-2 block text-sm font-medium text-white/80">
-              Email
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-white/40" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-white/20 bg-black/40 py-3 pl-10 pr-4 text-white placeholder:text-white/30 transition-all focus:border-[#3054ff] focus:outline-none focus:ring-1 focus:ring-[#3054ff]"
-                placeholder="votre@email.com"
+            {/* Traveling light beam effect */}
+            <div className="absolute -inset-[1px] rounded-2xl overflow-hidden">
+              <motion.div
+                className="absolute top-0 left-0 h-[3px] w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-70"
+                initial={{ filter: "blur(2px)" }}
+                animate={{
+                  left: ["-50%", "100%"],
+                  opacity: [0.3, 0.7, 0.3],
+                  filter: ["blur(1px)", "blur(2.5px)", "blur(1px)"]
+                }}
+                transition={{
+                  left: { duration: 2.5, ease: "easeInOut", repeat: Infinity, repeatDelay: 1 },
+                  opacity: { duration: 1.2, repeat: Infinity, repeatType: "mirror" }
+                }}
               />
             </div>
+
+            {/* Glass card background */}
+            <div className="relative bg-black/60 backdrop-blur-xl rounded-2xl p-6 border border-white/[0.08] shadow-2xl overflow-hidden">
+              {/* Logo and header */}
+              <div className="text-center space-y-2 mb-6">
+                <motion.div
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", duration: 0.8 }}
+                  className="mx-auto w-12 h-12 rounded-full border border-white/20 flex items-center justify-center relative overflow-hidden"
+                >
+                  <Mail className="w-6 h-6 text-white" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50" />
+                </motion.div>
+
+                <motion.h1
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="text-2xl font-bold text-white"
+                >
+                  Mot de passe oublié ?
+                </motion.h1>
+
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-white/50 text-sm"
+                >
+                  Entrez votre email pour recevoir un lien de réinitialisation
+                </motion.p>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {displayError ? (
+                  <div className="rounded-lg border border-red-300/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+                    {displayError}
+                  </div>
+                ) : null}
+
+                {/* Email input */}
+                <motion.div
+                  className="relative"
+                  whileFocus={{ scale: 1.02 }}
+                  whileHover={{ scale: 1.01 }}
+                >
+                  <div className="relative flex items-center overflow-hidden rounded-lg bg-white/5 border border-white/10 focus-within:border-white/30 transition-all">
+                    <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${
+                      focusedInput === "email" ? 'text-white' : 'text-white/40'
+                    }`} />
+                    <Input
+                      type="email"
+                      placeholder="Adresse email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      onFocus={() => setFocusedInput("email")}
+                      onBlur={() => setFocusedInput(null)}
+                      className="border-0 bg-transparent pl-10 pr-4 h-11"
+                    />
+                  </div>
+                </motion.div>
+
+                {/* Submit button */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={loading}
+                  className="w-full relative overflow-hidden bg-white text-black font-semibold h-11 rounded-lg transition-all duration-300 flex items-center justify-center mt-6"
+                >
+                  <AnimatePresence mode="wait">
+                    {loading ? (
+                      <motion.div
+                        key="loading"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="flex items-center"
+                      >
+                        <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                      </motion.div>
+                    ) : (
+                      <motion.span
+                        key="button-text"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="flex items-center gap-2"
+                      >
+                        Envoyer le lien
+                        <Send className="w-4 h-4" />
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </motion.button>
+
+                {/* Divider */}
+                <div className="relative my-6 flex items-center">
+                  <div className="flex-grow border-t border-white/10"></div>
+                  <span className="mx-4 text-xs text-white/40">ou</span>
+                  <div className="flex-grow border-t border-white/10"></div>
+                </div>
+
+                {/* Back to login link */}
+                <motion.p className="text-center text-sm text-white/60">
+                  <Link to="/login" className="text-white font-medium hover:underline inline-flex items-center gap-1">
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Retour à la connexion
+                  </Link>
+                </motion.p>
+              </form>
+            </div>
           </div>
-
-          <motion.button
-            type="submit"
-            disabled={loading}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#3054ff] to-[#4e6eff] px-4 py-3 font-medium text-white transition-all hover:from-[#2445e8] hover:to-[#3054ff] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? (
-              <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-white" />
-            ) : (
-              <>
-                <Send className="h-5 w-5" />
-                Envoyer le lien
-              </>
-            )}
-          </motion.button>
-
-          <Link
-            to="/login"
-            className="flex items-center justify-center gap-2 text-white/70 transition-colors hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Retour à la connexion
-          </Link>
-        </form>
+        </motion.div>
       </motion.div>
-    </AuthLayout>
+    </div>
   );
 };
 

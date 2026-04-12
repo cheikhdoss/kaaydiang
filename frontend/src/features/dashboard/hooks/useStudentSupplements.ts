@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import axios from 'axios'
 import api from '@/services/api'
 import {
   fetchStudentCalendar,
@@ -213,18 +214,38 @@ export const useSubmitAssignment = () => {
   return useMutation({
     mutationFn: async ({ assignmentId, files, note }: AssignmentSubmissionPayload) => {
       const formData = new FormData()
-      files.forEach((file) => formData.append('files[]', file))
+      files.forEach((file) => {
+        console.log('Appending file:', file.name, file.size, file.type)
+        formData.append('files[]', file)
+      })
       if (note) {
         formData.append('note', note)
       }
 
-      const response = await api.post(`/student/assignments/${assignmentId}/submit`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
+      for (const [key, value] of formData.entries()) {
+        console.log('FormData entry:', key, value)
+      }
 
-      return response.data
+      try {
+        const response = await api.post(`/student/assignments/${assignmentId}/submit`, formData)
+
+        return response.data
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          const responseData = error.response?.data as {
+            message?: string
+            errors?: Record<string, string[]>
+          } | undefined
+
+          const firstValidationError = responseData?.errors
+            ? Object.values(responseData.errors).flat()[0]
+            : undefined
+
+          throw new Error(firstValidationError ?? responseData?.message ?? 'La soumission a echoue.')
+        }
+
+        throw error
+      }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['student-supplements', 'deadlines'] })
