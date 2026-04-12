@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\LogsActivity;
+use App\Models\ActivityLog;
 use App\Models\Course;
 use Illuminate\Http\Request;
 
 class CourseManagementController extends Controller
 {
+    use LogsActivity;
     public function show(Request $request, Course $course)
     {
         $user = $request->user();
@@ -137,6 +140,11 @@ class CourseManagementController extends Controller
             'instructor_id' => $user->id,
         ]);
 
+        $this->logActivity('course.created', "Instructeur a créé le cours: {$course->title}", [
+            'model_type' => Course::class,
+            'model_id' => $course->id,
+        ]);
+
         return response()->json($course, 201);
     }
 
@@ -163,7 +171,20 @@ class CourseManagementController extends Controller
             $validated['thumbnail'] = $request->file('thumbnail')->store('thumbnails', 'public');
         }
 
+        $wasPublished = $course->is_published;
         $course->update($validated);
+
+        if (!$wasPublished && (bool) $course->is_published) {
+            $this->logActivity('course.published', "Instructeur a publié le cours: {$course->title}", [
+                'model_type' => Course::class,
+                'model_id' => $course->id,
+            ]);
+        } elseif ($wasPublished && !(bool) $course->is_published) {
+            $this->logActivity('course.unpublished', "Instructeur a dépublié le cours: {$course->title}", [
+                'model_type' => Course::class,
+                'model_id' => $course->id,
+            ]);
+        }
 
         return response()->json($course);
     }
@@ -176,7 +197,13 @@ class CourseManagementController extends Controller
             return response()->json(['message' => 'You can only delete your courses.'], 403);
         }
 
+        $title = $course->title;
         $course->delete();
+
+        $this->logActivity('course.deleted', "Instructeur a supprimé le cours: {$title}", [
+            'model_type' => Course::class,
+            'properties' => ['course_title' => $title],
+        ]);
 
         return response()->json(['message' => 'Course deleted successfully.']);
     }

@@ -8,8 +8,6 @@ import { cn } from "../../lib/utils";
 import { useAuth, resolveDashboardPath } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 
-type RegisterRole = 'student' | 'instructor';
-
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
     <input
@@ -33,7 +31,6 @@ export function SignUpCard() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState<RegisterRole>('student');
   const [localError, setLocalError] = useState<string | null>(null);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
@@ -68,7 +65,7 @@ export function SignUpCard() {
     }
 
     try {
-      const user = await register(email, password, firstName, lastName, role);
+      const user = await register(email, password, firstName, lastName);
       navigate(resolveDashboardPath(user.role), { replace: true });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erreur lors de l\'inscription';
@@ -242,18 +239,6 @@ export function SignUpCard() {
                       className="border-0 bg-transparent pl-10 pr-4 h-11"
                     />
                   </div>
-                </motion.div>
-
-                <motion.div className="relative" whileFocus={{ scale: 1.02 }} whileHover={{ scale: 1.01 }}>
-                  <label className="mb-2 block text-xs text-white/60">Profil</label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as RegisterRole)}
-                    className="h-11 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white outline-none transition-all focus:border-white/30"
-                  >
-                    <option className="bg-black" value="student">Etudiant</option>
-                    <option className="bg-black" value="instructor">Instructeur</option>
-                  </select>
                 </motion.div>
 
                 {/* Password input */}

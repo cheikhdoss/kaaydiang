@@ -32,6 +32,7 @@ export const dashboardPaths = {
   adminUsers: '/dashboard/admin/users',
   adminModeration: '/dashboard/admin/moderation',
   adminHealth: '/dashboard/admin/health',
+  adminActivity: '/dashboard/admin/activity',
 } as const
 
 export const resolveRoleDashboardPath = (role: UserRole) => resolveDashboardPath(role)

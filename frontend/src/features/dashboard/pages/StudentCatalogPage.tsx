@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { resolveRoleDashboardPath } from '../utils/navigation'
+import { resolveCourseThumbnail } from '../utils/courseThumbnail'
 import { DashboardShell } from '../components/DashboardShell'
 import { ErrorState } from '../components/ErrorState'
 import { LoadingState } from '../components/LoadingState'
@@ -150,7 +151,7 @@ const StudentCatalogPage: React.FC = () => {
                     <div className="aspect-[16/10] relative overflow-hidden">
                       {course.thumbnail ? (
                         <img
-                          src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${course.thumbnail}`}
+                          src={resolveCourseThumbnail(course.thumbnail)}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                           alt={course.title}
                         />

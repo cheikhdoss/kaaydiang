@@ -1,10 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  fetchStudentQuizzes,
   fetchStudentQuiz,
   submitStudentQuiz,
   fetchStudentQuizResult,
   type StudentQuizSubmitPayload,
 } from '../services/dashboard.api'
+
+export const useStudentQuizzes = () =>
+  useQuery({
+    queryKey: ['student-quizzes'],
+    queryFn: fetchStudentQuizzes,
+    staleTime: 30_000,
+    retry: 1,
+  })
 
 export const useStudentQuiz = (quizId: number | null) =>
   useQuery({

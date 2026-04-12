@@ -28,6 +28,8 @@ use Illuminate\Validation\Rule;
 
 class DashboardController extends Controller
 {
+    use \App\LogsActivity;
+
     public function student(Request $request)
     {
         $user = $request->user();
@@ -1006,6 +1008,15 @@ class DashboardController extends Controller
         }
 
         $submission->save();
+
+        $this->logActivity('assignment.graded', "Devoir noté: {$assignment->title} - Étudiant: {$submission->user?->email} - Score: {$submission->score}", [
+            'model_type' => AssignmentSubmission::class,
+            'model_id' => $submission->id,
+            'properties' => [
+                'status' => $submission->status,
+                'score' => $submission->score,
+            ],
+        ]);
 
         // Send notification to the student
         if ($submission->user) {
@@ -2081,6 +2092,11 @@ class DashboardController extends Controller
             'description' => isset($validated['description']) ? trim((string) $validated['description']) : null,
             'course_id' => (int) $validated['course_id'],
             'due_date' => isset($validated['due_date']) ? $validated['due_date'] : null,
+        ]);
+
+        $this->logActivity('assignment.created', "Devoir créé: {$assignment->title}", [
+            'model_type' => Assignment::class,
+            'model_id' => $assignment->id,
         ]);
 
         $assignment->load('course:id,title');

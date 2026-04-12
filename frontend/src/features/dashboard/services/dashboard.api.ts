@@ -746,6 +746,65 @@ export const fetchAdminPlatformHealth = async () => {
   return response.data as AdminPlatformHealthPayload
 }
 
+// ==================== ADMIN ACTIVITY LOGS & CHARTS ====================
+
+export interface AdminActivityLogItem {
+  id: number
+  action: string
+  description: string
+  user: {
+    id: number
+    name: string
+    email: string
+    role: DashboardRole
+  } | null
+  model_type: string | null
+  model_id: number | null
+  properties: Record<string, unknown> | null
+  ip_address: string | null
+  created_at: string
+}
+
+export interface PaginatedActivityLogsPayload {
+  data: AdminActivityLogItem[]
+  current_page: number
+  last_page: number
+  per_page: number
+  total: number
+}
+
+export interface AdminChartData {
+  registrations: Array<{ date: string; label: string; count: number }>
+  enrollments: Array<{ date: string; label: string; count: number }>
+  course_creations: Array<{ date: string; label: string; count: number }>
+  activity_by_type: Array<{
+    date: string
+    label: string
+    user_actions: number
+    course_actions: number
+    assignment_actions: number
+  }>
+  role_distribution: Array<{ role: string; count: number; color: string }>
+  level_distribution: Array<{ level: string; count: number; color: string }>
+  publication_status: Array<{ status: string; count: number; color: string }>
+}
+
+export const fetchAdminActivityLogs = async (params?: {
+  action?: string
+  user_id?: number
+  days?: number
+  page?: number
+  per_page?: number
+}) => {
+  const response = await api.get('/admin/activity-logs', { params })
+  return response.data as PaginatedActivityLogsPayload
+}
+
+export const fetchAdminChartData = async () => {
+  const response = await api.get('/admin/chart-data')
+  return response.data as AdminChartData
+}
+
 // ==================== STUDENT CALENDAR ====================
 
 export interface StudentCalendarEvent {
@@ -1273,6 +1332,21 @@ export interface StudentQuizPayload {
   } | null
 }
 
+export interface StudentQuizListingItem {
+  id: number
+  title: string
+  description: string | null
+  course_id: number
+  course_title: string
+  pass_score: number
+  question_count: number
+  total_points: number
+  has_attempted: boolean
+  last_score: number | null
+  is_passed: boolean | null
+  last_attempted_at: string | null
+}
+
 export interface StudentQuizSubmitAnswer {
   question_id: number
   answer_data: {
@@ -1337,6 +1411,11 @@ export interface StudentQuizDetailResult {
 export const fetchStudentQuiz = async (quizId: number) => {
   const response = await api.get(`/student/quizzes/${quizId}`)
   return response.data as StudentQuizPayload
+}
+
+export const fetchStudentQuizzes = async () => {
+  const response = await api.get('/student/quizzes')
+  return response.data as StudentQuizListingItem[]
 }
 
 export const submitStudentQuiz = async (quizId: number, payload: StudentQuizSubmitPayload) => {

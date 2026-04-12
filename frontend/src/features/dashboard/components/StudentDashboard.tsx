@@ -16,6 +16,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { dashboardPaths } from '../utils/navigation'
+import { resolveCourseThumbnail } from '../utils/courseThumbnail'
 import { ActionFeedback } from './ActionFeedback'
 import { useEnrollInCourse, useStudentCatalog, useStudentMyCourses } from '../hooks/useStudentLearning'
 import { useStudentModules } from '../hooks/useStudentModules'
@@ -200,7 +201,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ data }) => {
                   <div className="flex gap-4">
                     <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 bg-slate-100 dark:bg-white/5">
                       <img
-                        src={course.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=200&q=80'}
+                        src={resolveCourseThumbnail(course.thumbnail)}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                         alt={course.title}
                       />
@@ -277,7 +278,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ data }) => {
               {catalog.slice(0, 3).map((course) => (
                 <div key={course.id} className="flex gap-4 group cursor-pointer">
                   <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-100 dark:bg-white/5 flex-shrink-0">
-                    <img src={course.thumbnail || ''} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" alt={course.title} />
+                    <img
+                      src={resolveCourseThumbnail(course.thumbnail)}
+                      className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
+                      alt={course.title}
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-1 group-hover:text-[#3054ff] transition-colors">{course.title}</h4>

@@ -30,8 +30,7 @@ interface AuthContextType {
     email: string,
     password: string,
     firstName: string,
-    lastName: string,
-    role?: Extract<UserRole, 'student' | 'instructor'>
+    lastName: string
   ) => Promise<User>;
   resetPassword: (email: string) => Promise<string>;
   logout: () => Promise<void>;
@@ -172,8 +171,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     email: string,
     password: string,
     firstName: string,
-    lastName: string,
-    role: Extract<UserRole, 'student' | 'instructor'> = 'student'
+    lastName: string
   ) => {
     setLoading(true);
     setError(null);
@@ -191,7 +189,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           password_confirmation: password,
           first_name: firstName,
           last_name: lastName,
-          role,
         }),
       });
 

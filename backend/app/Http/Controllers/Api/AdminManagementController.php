@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\LogsActivity;
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class AdminManagementController extends Controller
 {
+    use LogsActivity;
+
     public function store(Request $request)
     {
         $admin = $request->user();
@@ -28,6 +32,12 @@ class AdminManagementController extends Controller
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
             'is_active' => true,
+        ]);
+
+        $this->logActivity('user.created', "Admin {$admin->email} a créé l'utilisateur utilisateur {$user->email} (role: {$user->role})", [
+            'model_type' => User::class,
+            'model_id' => $user->id,
+            'properties' => ['role' => $user->role],
         ]);
 
         return response()->json([
@@ -84,6 +94,12 @@ class AdminManagementController extends Controller
             'role' => $validated['role'],
         ]);
 
+        $this->logActivity('user.role_changed', "Admin {$admin->email} a changé le rôle de {$user->email} vers {$validated['role']}", [
+            'model_type' => User::class,
+            'model_id' => $user->id,
+            'properties' => ['old_role' => $user->getOriginal('role'), 'new_role' => $validated['role']],
+        ]);
+
         return response()->json([
             'message' => 'Role updated successfully.',
             'user' => $user->only(['id', 'first_name', 'last_name', 'email', 'role', 'is_active']),
@@ -104,6 +120,13 @@ class AdminManagementController extends Controller
 
         $user->update([
             'is_active' => $validated['is_active'],
+        ]);
+
+        $statusText = $validated['is_active'] ? 'activé' : 'désactivé';
+        $this->logActivity('user.status_changed', "Admin {$admin->email} a {$statusText} le compte de {$user->email}", [
+            'model_type' => User::class,
+            'model_id' => $user->id,
+            'properties' => ['is_active' => $validated['is_active']],
         ]);
 
         return response()->json([

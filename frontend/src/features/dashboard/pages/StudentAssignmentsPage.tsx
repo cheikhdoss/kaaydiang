@@ -11,6 +11,28 @@ import { useStudentSupplementDeadlines, useSubmitAssignment } from '../hooks/use
 import { Button } from '@/components/ui/button'
 import type { DashboardRole } from '../services/dashboard.api'
 
+const ACCEPTED_ASSIGNMENT_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/zip',
+  'application/x-zip-compressed',
+])
+
+const ACCEPTED_ASSIGNMENT_EXTENSIONS = ['.pdf', '.zip']
+
+const configuredMaxFileMb = Number(import.meta.env.VITE_ASSIGNMENT_MAX_FILE_MB ?? 2)
+const MAX_ASSIGNMENT_FILE_MB = Number.isFinite(configuredMaxFileMb) && configuredMaxFileMb > 0
+  ? configuredMaxFileMb
+  : 2
+const MAX_ASSIGNMENT_FILE_BYTES = MAX_ASSIGNMENT_FILE_MB * 1024 * 1024
+const MAX_ASSIGNMENT_FILE_LABEL = Number.isInteger(MAX_ASSIGNMENT_FILE_MB)
+  ? String(MAX_ASSIGNMENT_FILE_MB)
+  : MAX_ASSIGNMENT_FILE_MB.toFixed(1)
+
+const isAcceptedAssignmentFile = (file: File) => {
+  const lowerName = file.name.toLowerCase()
+  return ACCEPTED_ASSIGNMENT_MIME_TYPES.has(file.type) || ACCEPTED_ASSIGNMENT_EXTENSIONS.some((ext) => lowerName.endsWith(ext))
+}
+
 const StudentAssignmentsPage: React.FC = () => {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
@@ -18,9 +40,18 @@ const StudentAssignmentsPage: React.FC = () => {
   const submitAssignment = useSubmitAssignment()
 
   const [selectedAssignment, setSelectedAssignment] = useState<number | null>(null)
+  const [viewingSubmission, setViewingSubmission] = useState<{
+    title: string
+    course_title: string | null
+    status: string
+    submitted_at: string | null
+    score: number | null
+    feedback: string | null
+  } | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [note, setNote] = useState('')
   const [isDragging, setIsDragging] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!user) return <LoadingState fullscreen />
@@ -42,10 +73,31 @@ const StudentAssignmentsPage: React.FC = () => {
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return
-    const validFiles = Array.from(files).filter(f =>
-      ['application/pdf', 'application/zip', 'application/x-zip-compressed'].includes(f.type) ||
-      f.name.endsWith('.pdf') || f.name.endsWith('.zip')
-    )
+    setSubmitError(null)
+    const incomingFiles = Array.from(files)
+
+    const invalidTypeFiles = incomingFiles.filter((file) => !isAcceptedAssignmentFile(file))
+    const oversizedFiles = incomingFiles.filter((file) => file.size > MAX_ASSIGNMENT_FILE_BYTES)
+    const validFiles = incomingFiles.filter((file) => isAcceptedAssignmentFile(file) && file.size <= MAX_ASSIGNMENT_FILE_BYTES)
+
+    if (invalidTypeFiles.length > 0 || oversizedFiles.length > 0) {
+      const errors: string[] = []
+
+      if (invalidTypeFiles.length > 0) {
+        errors.push('Formats autorisés: PDF ou ZIP.')
+      }
+
+      if (oversizedFiles.length > 0) {
+        errors.push(`Taille max par fichier: ${MAX_ASSIGNMENT_FILE_LABEL} Mo.`)
+      }
+
+      setSubmitError(errors.join(' '))
+    }
+
+    if (validFiles.length === 0) {
+      return
+    }
+
     setSelectedFiles(prev => [...prev, ...validFiles])
   }
 
@@ -59,16 +111,31 @@ const StudentAssignmentsPage: React.FC = () => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = async (assignmentId: number) => {
-    if (!selectedFiles.length) return
-    await submitAssignment.mutateAsync({
-      assignmentId,
-      files: selectedFiles,
-      note: note || undefined,
-    })
-    setSelectedFiles([])
-    setNote('')
-    setSelectedAssignment(null)
+  const handleSubmit = async (assignmentId: number | null) => {
+    if (!assignmentId) {
+      setSubmitError('Aucun devoir sélectionné.')
+      return
+    }
+
+    if (!selectedFiles.length) {
+      setSubmitError('Ajoutez au moins un fichier PDF ou ZIP avant d\'envoyer.')
+      return
+    }
+
+    setSubmitError(null)
+
+    try {
+      await submitAssignment.mutateAsync({
+        assignmentId,
+        files: selectedFiles,
+        note: note || undefined,
+      })
+      setSelectedFiles([])
+      setNote('')
+      setSelectedAssignment(null)
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Impossible d\'envoyer la soumission.')
+    }
   }
 
   return (
@@ -156,7 +223,18 @@ const StudentAssignmentsPage: React.FC = () => {
                       <h4 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">{a.title}</h4>
                       <p className="text-[10px] text-slate-400 dark:text-white/40 mt-1">{a.course_title}</p>
                     </div>
-                    <Button variant="link" className="text-blue-600 p-0 h-auto self-start text-xs font-bold mt-4 hover:text-blue-700">
+                    <Button
+                      variant="link"
+                      className="text-blue-600 p-0 h-auto self-start text-xs font-bold mt-4 hover:text-blue-700"
+                      onClick={() => setViewingSubmission({
+                        title: a.title,
+                        course_title: a.course_title,
+                        status: a.status,
+                        submitted_at: a.submitted_at,
+                        score: (a as any).score ?? null,
+                        feedback: (a as any).feedback ?? null,
+                      })}
+                    >
                       Voir les détails <ArrowUpRight size={14} className="ml-1" />
                     </Button>
                   </motion.div>
@@ -172,7 +250,7 @@ const StudentAssignmentsPage: React.FC = () => {
               <ul className="space-y-4">
                 {[
                   'Respectez les formats PDF ou ZIP uniquement.',
-                  'Taille maximale des fichiers : 50 Mo.',
+                  `Taille maximale des fichiers : ${MAX_ASSIGNMENT_FILE_LABEL} Mo.`,
                   'Une seule soumission autorisée par devoir.',
                   'Consultez les critères de notation avant de valider.'
                 ].map((text, i) => (
@@ -206,7 +284,7 @@ const StudentAssignmentsPage: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={() => { setSelectedAssignment(null); setSelectedFiles([]); setNote('') }}
+            onClick={() => { setSelectedAssignment(null); setSelectedFiles([]); setNote(''); setSubmitError(null) }}
           >
             <motion.div
               initial={{ scale: 0.95, y: 20 }}
@@ -217,7 +295,7 @@ const StudentAssignmentsPage: React.FC = () => {
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">Soumettre le devoir</h3>
-                <button onClick={() => { setSelectedAssignment(null); setSelectedFiles([]); setNote('') }} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors">
+                <button onClick={() => { setSelectedAssignment(null); setSelectedFiles([]); setNote(''); setSubmitError(null) }} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors">
                   <X size={18} className="text-slate-400" />
                 </button>
               </div>
@@ -243,7 +321,7 @@ const StudentAssignmentsPage: React.FC = () => {
                 <Upload size={32} className="mx-auto mb-3 text-slate-400 dark:text-white/20" />
                 <p className="text-sm font-semibold text-slate-900 dark:text-white">Glissez vos fichiers ici</p>
                 <p className="text-xs text-slate-400 dark:text-white/30 mt-1">ou cliquez pour parcourir</p>
-                <p className="text-[10px] text-slate-400 dark:text-white/20 mt-2">PDF ou ZIP — Max 50 Mo</p>
+                <p className="text-[10px] text-slate-400 dark:text-white/20 mt-2">PDF ou ZIP — Max {MAX_ASSIGNMENT_FILE_LABEL} Mo</p>
               </div>
 
               {/* File List */}
@@ -274,6 +352,12 @@ const StudentAssignmentsPage: React.FC = () => {
                 />
               </div>
 
+              {submitError && (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300">
+                  {submitError}
+                </div>
+              )}
+
               {/* Submit */}
               <Button
                 className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold h-12 shadow-none"
@@ -282,6 +366,106 @@ const StudentAssignmentsPage: React.FC = () => {
               >
                 <Send size={16} className="mr-2" />
                 {submitAssignment.isPending ? 'Envoi...' : 'Envoyer la soumission'}
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Detail Modal */}
+      <AnimatePresence>
+        {viewingSubmission && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setViewingSubmission(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md bg-white dark:bg-[#0a0a0a] border border-slate-200 dark:border-white/5 rounded-3xl p-8"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Détails du devoir</h3>
+                <button onClick={() => setViewingSubmission(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors">
+                  <X size={18} className="text-slate-400" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Title */}
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 dark:text-white/30 uppercase tracking-wider">Devoir</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white mt-1">{viewingSubmission.title}</p>
+                  <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">{viewingSubmission.course_title ?? '—'}</p>
+                </div>
+
+                {/* Status Badge */}
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 dark:text-white/30 uppercase tracking-wider">Statut</p>
+                  <div className="mt-1">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                      viewingSubmission.status === 'reviewed'
+                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                        : viewingSubmission.status === 'rejected'
+                        ? 'bg-red-500/20 text-red-600 dark:text-red-400'
+                        : 'bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                    }`}>
+                      {viewingSubmission.status === 'reviewed' ? (
+                        <><CheckCircle2 size={12} /> Corrigé</>
+                      ) : viewingSubmission.status === 'rejected' ? (
+                        <><AlertCircle size={12} /> Refusé</>
+                      ) : (
+                        <><Clock size={12} /> En attente</>
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Score */}
+                {viewingSubmission.status === 'reviewed' && viewingSubmission.score !== null && (
+                  <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-400/10 border border-emerald-200 dark:border-emerald-400/20">
+                    <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Note</p>
+                    <p className="text-3xl font-black text-emerald-700 dark:text-emerald-300 mt-1">{viewingSubmission.score}<span className="text-lg text-emerald-500 dark:text-emerald-500">/100</span></p>
+                  </div>
+                )}
+
+                {/* Submitted At */}
+                {viewingSubmission.submitted_at && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 dark:text-white/30 uppercase tracking-wider">Soumis le</p>
+                    <p className="text-sm text-slate-700 dark:text-white/70 mt-1">
+                      {new Date(viewingSubmission.submitted_at).toLocaleDateString('fr-FR', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                )}
+
+                {/* Feedback */}
+                {viewingSubmission.status === 'reviewed' && (
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                    <p className="text-xs font-semibold text-slate-400 dark:text-white/30 uppercase tracking-wider mb-2">Commentaire instructeur</p>
+                    <p className="text-xs text-slate-600 dark:text-white/50">
+                      {viewingSubmission.feedback || "Aucun commentaire ajouté."}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold h-12 shadow-none"
+                onClick={() => setViewingSubmission(null)}
+              >
+                Fermer
               </Button>
             </motion.div>
           </motion.div>

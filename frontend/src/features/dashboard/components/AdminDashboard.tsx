@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { BookOpenCheck, ShieldCheck, UserCog, Users } from 'lucide-react'
+import { BookOpenCheck, ShieldCheck, UserCog, Users, BarChart3, Activity } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,8 @@ import { dashboardPaths } from '../utils/navigation'
 import { ActionFeedback } from './ActionFeedback'
 import { useAdminUsers, useUpdateAdminUserRole, useUpdateAdminUserStatus } from '../hooks/useAdminUsers'
 import { useAdminModules } from '../hooks/useAdminModules'
+import { useAdminChartData } from '../hooks/useAdminCharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { AdminDashboardPayload } from '../services/dashboard.api'
 
 interface AdminDashboardProps {
@@ -20,6 +22,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data }) => {
   const updateRole = useUpdateAdminUserRole()
   const updateStatus = useUpdateAdminUserStatus()
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const { data: chartData } = useAdminChartData()
 
   const { data: modulesData } = useAdminModules()
   const recentUsers = modulesData?.modules.recent_users ?? []
@@ -78,6 +81,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data }) => {
                 </Button>
               </div>
             ))}
+            {/* Activity & Analysis card */}
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-purple-400" />
+                <h5 className="text-sm font-semibold text-white">Activité & Analyses</h5>
+              </div>
+              <p className="mb-3 text-xs text-white/65">Graphiques, journaux d'activité et statistiques détaillées.</p>
+              <Button
+                className="w-full bg-purple-500/90 text-white hover:bg-purple-600"
+                onClick={() => navigate(dashboardPaths.adminActivity)}
+              >
+                <Activity className="mr-1.5 h-4 w-4" />
+                Consulter
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -99,6 +117,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data }) => {
           </motion.div>
         ))}
       </div>
+
+      {/* Mini trend chart */}
+      {chartData && (
+        <div className="mb-6 rounded-2xl border border-white/10 bg-black/40 p-5">
+          <h4 className="mb-4 text-sm font-semibold text-white/90">Tendance inscriptions (30 jours)</h4>
+          <ResponsiveContainer width="100%" height={180}>
+            <LineChart data={chartData.registrations}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)' }} />
+              <YAxis tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)' }} allowDecimals={false} />
+              <Tooltip
+                contentStyle={{ backgroundColor: 'rgba(0,0,0,0.85)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 12 }}
+              />
+              <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-black/35 p-5">

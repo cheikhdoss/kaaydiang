@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { resolveRoleDashboardPath, dashboardPaths } from '../utils/navigation'
+import { resolveCourseThumbnail } from '../utils/courseThumbnail'
 import { DashboardShell } from '../components/DashboardShell'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
@@ -57,7 +58,7 @@ const StudentCourseDetailPage: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             className="relative rounded-[2rem] overflow-hidden aspect-[21/9] min-h-[250px]"
           >
-            <img src={course.thumbnail ? `${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${course.thumbnail}` : ''} className="absolute inset-0 w-full h-full object-cover" alt={course.title} />
+            <img src={resolveCourseThumbnail(course.thumbnail, '')} className="absolute inset-0 w-full h-full object-cover" alt={course.title} />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
             <div className="absolute inset-0 p-8 md:p-12 flex flex-col justify-end">
               <div className="flex items-center gap-3 mb-3">

@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/hooks/useAuth'
 import { resolveRoleDashboardPath } from '../utils/navigation'
+import { resolveCourseThumbnail } from '../utils/courseThumbnail'
 import { DashboardShell } from '../components/DashboardShell'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { useStudentMyCourses } from '../hooks/useStudentLearning'
+import { useStudentQuizzes } from '../hooks/useStudentQuiz'
 import { Button } from '@/components/ui/button'
 import type { DashboardRole } from '../services/dashboard.api'
 
@@ -16,6 +18,7 @@ const StudentQuizListingPage: React.FC = () => {
   const navigate = useNavigate()
   const { data, isLoading, isError, error, refetch } = useDashboardData('student')
   const { data: myCourses = [] } = useStudentMyCourses()
+  const { data: quizzes = [], isLoading: quizzesLoading } = useStudentQuizzes()
 
   if (!user) return <LoadingState fullscreen />
 
@@ -28,11 +31,16 @@ const StudentQuizListingPage: React.FC = () => {
     navigate(resolveRoleDashboardPath(role))
   }
 
-  if (isLoading) return <LoadingState fullscreen />
+  if (isLoading || quizzesLoading) return <LoadingState fullscreen />
   if (isError) return <ErrorState message={error instanceof Error ? error.message : 'Erreur'} onRetry={() => void refetch()} />
   if (!data || data.role !== 'student') return <ErrorState message="Données invalides" onRetry={() => void refetch()} />
 
   const quizModule = data.modules.find(m => m.key === 'quiz')
+
+  const quizzesByCourse = quizzes.reduce<Record<number, typeof quizzes>>((acc, quiz) => {
+    acc[quiz.course_id] = acc[quiz.course_id] ? [...acc[quiz.course_id], quiz] : [quiz]
+    return acc
+  }, {})
 
   return (
     <DashboardShell
@@ -91,21 +99,41 @@ const StudentQuizListingPage: React.FC = () => {
                 >
                   <div className="flex items-start justify-between mb-6">
                     <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center overflow-hidden">
-                      <img src={item.course.thumbnail || ''} className="w-full h-full object-cover opacity-50" alt={item.course.title} />
+                      <img src={resolveCourseThumbnail(item.course.thumbnail, '')} className="w-full h-full object-cover opacity-50" alt={item.course.title} />
                     </div>
                     <div className="px-2 py-1 rounded-md bg-slate-100 dark:bg-white/5 text-[8px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest">
                       {item.course.level}
                     </div>
                   </div>
                   <h4 className="font-bold text-slate-900 dark:text-white mb-2 line-clamp-1 group-hover:text-[#3054ff] transition-colors">{item.course.title}</h4>
-                  <div className="flex items-center justify-between mt-6">
+                  <div className="mt-6 space-y-3">
                     <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest">
                       <Clock size={12} />
-                      <span>15 mins</span>
+                      <span>{quizzesByCourse[item.course.id]?.length ?? 0} quiz disponible(s)</span>
                     </div>
-                    <Button variant="outline" size="sm" className="h-9 px-4 rounded-xl border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white hover:bg-[#3054ff] hover:border-[#3054ff] hover:text-white transition-all group/btn">
-                      Lancer <Play size={12} className="ml-2 group-hover/btn:fill-white" />
-                    </Button>
+
+                    {quizzesByCourse[item.course.id]?.length ? (
+                      quizzesByCourse[item.course.id].slice(0, 2).map((quiz) => (
+                        <div key={quiz.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-bold text-slate-800 dark:text-white">{quiz.title}</p>
+                            <p className="text-[10px] text-slate-500 dark:text-white/40">
+                              {quiz.question_count} questions · seuil {quiz.pass_score}%
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-3 rounded-lg border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white hover:bg-[#3054ff] hover:border-[#3054ff] hover:text-white transition-all group/btn"
+                            onClick={() => navigate(`/dashboard/student/quiz/${quiz.id}`)}
+                          >
+                            Lancer <Play size={11} className="ml-1 group-hover/btn:fill-white" />
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-slate-500 dark:text-white/40">Aucun quiz publie pour ce cours pour le moment.</p>
+                    )}
                   </div>
                 </motion.div>
               ))}

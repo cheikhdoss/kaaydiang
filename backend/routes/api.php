@@ -96,6 +96,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/notifications/{notificationId}/read', [StudentLearningController::class, 'markNotificationRead']);
         Route::post('/notifications/read-all', [StudentLearningController::class, 'markAllNotificationsRead']);
         Route::post('/assignments/{assignment}/submit', [StudentLearningController::class, 'submitAssignment']);
+        Route::get('/quizzes', [StudentLearningController::class, 'quizzes']);
         Route::get('/quizzes/{quiz}', [StudentLearningController::class, 'quizDetail']);
         Route::post('/quizzes/{quiz}/submit', [StudentLearningController::class, 'submitQuiz']);
         Route::get('/quizzes/{quiz}/result', [StudentLearningController::class, 'quizResult']);
@@ -113,6 +114,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Platform health & stats
         Route::get('/stats', [AdminHealthController::class, 'stats']);
+        Route::get('/chart-data', [AdminHealthController::class, 'chartData']);
+        Route::get('/activity-logs', [AdminHealthController::class, 'activityLogs']);
 
         // Content moderation - courses
         Route::get('/courses', [AdminHealthController::class, 'courses']);
